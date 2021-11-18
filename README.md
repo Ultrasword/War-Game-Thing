@@ -1,2 +1,4 @@
 # War-Game-Thing
-Yes Game
+## Very Fun Game
+- thats about it :D
+- for now ofc
