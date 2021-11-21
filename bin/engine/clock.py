@@ -19,11 +19,11 @@ class Clock:
         self.wait_time = self.ideal_time - self.delta_time
         if self.wait_time < 0:
             self.wait_time = 0
-        else:
-            self.delta_time += self.wait_time
 
     def wait(self):
         time.sleep(self.wait_time)
+        self.delta_time += self.wait_time
+        self.start_time = self.end_time + self.wait_time
 
     def get_delta_time(self):
         return self.delta_time

@@ -28,6 +28,10 @@ class Camera:
         self.pos = [maths.lerp(self.pos[0], self.entity.pos[0], self.lerp_amt * dt),
                     maths.lerp(self.pos[1], self.entity.pos[1], self.lerp_amt * dt)]
 
+    def render(self, handler, frame):
+        frame.blits([[e.image, [e.pos[0] + e.offsets[0] + self.offsets[0],
+                                e.pos[1] + e.offsets[1] + self.offsets[1]]] for eid, e in handler.entities.items()])
+
     def update_render_entities(self, handler, frame, dt):
         for entity in handler.entities:
             entity.update(handler, dt)

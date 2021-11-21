@@ -6,6 +6,8 @@ class Entity:
         self.pos = pos
         self.area = area
         self.image_file = image_file
+        self.image = None
+        self.id = 0
 
         if not self.pos:
             self.pos = [0, 0]
@@ -18,8 +20,9 @@ class Entity:
         self.offsets = [0, 0]
         self.hitbox_offsets = [0, 0]
         self.lerp_amt = [0, 0]
+        self.speed_multipliers = [0, 0]
+        self.xflip = False
 
     def update(self, handler, dt):
         pass
-
 
