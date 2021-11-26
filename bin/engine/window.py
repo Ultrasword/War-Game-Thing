@@ -13,6 +13,11 @@ class Window:
         self.window = pygame.display.set_mode(self.area, flags, bit_depth)
         self.size_changed = True
 
+        if self.title:
+            pygame.display.set_caption(self.title)
+        if self.icon:
+            pygame.display.set_icon(pygame.image.load(self.icon))
+
     def get_window(self):
         return self.window
 
