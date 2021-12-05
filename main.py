@@ -4,7 +4,6 @@ import pygame
 from bin import game
 from bin.engine import *
 
-
 import random
 
 
@@ -17,6 +16,7 @@ def main():
     Clock = clock.Clock()
     Handler = handler.Handler()
     World = handler.World()
+    InputHandler = handler.InputHandler()
     Camera = camera.Camera(pos=(0, 0), area=window_scale_size)
 
     # init engine
@@ -47,6 +47,8 @@ def main():
                 running = False
             elif e.type == pygame.WINDOWRESIZED:
                 Window.change_dimension(e.x, e.y)
+            elif e.type == pygame.KEYUP or e.type == pygame.KEYDOWN:
+                InputHandler.update(e)
 
         pygame.display.flip()
         Clock.update()

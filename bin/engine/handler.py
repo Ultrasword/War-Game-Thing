@@ -1,3 +1,5 @@
+import json
+import pygame
 from collections import deque
 
 ENTITY_COUNT_LIMIT = int(1e5)
@@ -47,3 +49,55 @@ class World:
         # there is also a limited amount of world space available
         # TODO - perlin noise and find out how big the world is -> ask ethan
         self.chunks = deque([])
+
+
+class Scene:
+    def __init__(self, datapath=None):
+        self.datapath = datapath
+        if self.datapath:
+            # load the data
+            load_scene(self.datapath, self)
+        # handler and world
+        self.handler = Handler()
+        self.world = World()
+
+
+# TODO - WORK IN PROGRESS
+def load_scene(path, scene=None):
+    result = None
+    if not scene:
+        result = Scene()
+    with open(path, 'r') as file:
+        decoded = json.load(file)
+        file.close()
+    # entities should be named as the following
+    # {x, y, width, height, imagedata}
+    # load entities
+    for entity in decoded['entities']:
+        x, y, w, h, imgdata = entity
+
+
+class InputHandler:
+    default_key_map = {
+        pygame.K_w: 'up',
+        pygame.K_s: 'down',
+        pygame.K_d: 'right',
+        pygame.K_a: 'left',
+        pygame.K_SPACE: 'jump',
+        pygame.K_LSHIFT: 'shift',
+        pygame.K_ESCAPE: 'esc'
+    }
+
+    def __init__(self):
+        self.keymap = InputHandler.default_key_map
+        self.key_pressed = {x: False for x in InputHandler.default_key_map.values()}
+
+    def pressed(self, key):
+        return self.key_pressed.get(key)
+
+    def update(self, pygame_event):
+        if pygame_event.type == pygame.KEYDOWN:
+            self.key_pressed[pygame_event.key] = False
+        elif pygame_event.type == pygame.KEYUP:
+            self.key_pressed[pygame_event.key] = True
+

@@ -1,5 +1,7 @@
 import pygame
+import random
 
+from bin.maths import lerp
 from bin.engine import entity
 from bin.engine import animation
 
@@ -42,6 +44,16 @@ class Warrior(entity.Entity):
 
         # don't move yet!
         # TODO - make movement script and entity AI
+        # wander around for now
+        x = random.random() - 0.5
+        y = random.random() - 0.5
+        self.motion[0] += x
+        self.motion[1] += y
+
+        self.pos[0] += self.motion[0]
+        self.pos[1] += self.motion[1]
+
+        self.motion = [lerp(self.motion[0], 0.0, 0.3), lerp(self.motion[1], 0.0, 0.3)]
 
         moving = False
 
