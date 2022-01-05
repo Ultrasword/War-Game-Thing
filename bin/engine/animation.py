@@ -27,8 +27,8 @@ class AnimationData:
                 p = data[ani]["path"]
                 frame_time = 1 / data[ani]["fps"]
                 frames = data[ani]["frames"]
-                ani_frames = filehandler.load_animation_from_spritesheet(p, self.width, self.height, frames,
-                                                                         self.xoffset, self.yoffset)
+                ani_frames = filehandler.load_animation_from_sprite_sheet(p, self.width, self.height, frames,
+                                                                          self.xoffset, self.yoffset)
                 self.animations[ani] = [
                     p,  # the path to the sprite sheet
                     frame_time,  # the time between frames

@@ -1,31 +1,89 @@
 import pygame
 import os
 
+LOADED_IMAGES = {}
 
-def load_animation_from_spritesheet(path, width, height, frames, xoffset, yoffset):
+
+import pygame
+import os
+
+LOADED = {}
+FONT = {}
+
+
+# img size decode
+def size_to_num(size):
+    return (size[0] << 8) + size[1]
+
+
+def num_to_size(num):
+    return [(w := (num >> 8) - 1), num - (w < 8)]
+
+
+def get_image(path, size=None):
+    # CHECK IF FILE EXISTS
+    if not os.path.exists(path):
+        raise Exception(f"File does not exist at {path}")
+
+    # load image
+    image = pygame.image.load(path).convert_alpha()
+
+    # check if there is a specified size
+    if size:
+        bytesize = size_to_num(size)
+        # add the new size to LOADED
+    else:
+        # get image size
+        size = image.get_size()
+        # get bytesize
+        bytesize = size_to_num(size)
+    # ADD TO LOADED
+    if not LOADED.get(bytesize):
+        LOADED[bytesize] = {path: image}
+    else:
+        LOADED[bytesize][path] = image
+    # return image
+    return pygame.transform.scale(image, size)
+
+
+def load_font(font, size=32):
+    # check if size exists
+    if not FONT.get(size):
+        FONT[size] = {}
+    # check if font already loaded
+    if not FONT[size].get(font):
+        FONT[size][font] = pygame.font.Font(font, size)
+    return FONT[size][font]
+
+
+def resize(img, size):
+    return pygame.transform.scale(img, size).convert_alpha()
+
+
+def load_animation_from_sprite_sheet(path, width, height, frames, x_off, y_off):
     # open the image file and cut out the areas for frames
-    print(path)
-    sprite_sheet = FileHandler.get_image(path)
+    # print(path)
+    sprite_sheet = get_image(path)
     frame_data = []
     sheet_width = sprite_sheet.get_width()
     sheet_height = sprite_sheet.get_height()
     img_dimensions = (width, height)
-    xsection = width + 2 * xoffset
-    ysection = height + 2 * yoffset
+    x_section = width + 2 * x_off
+    y_section = height + 2 * y_off
 
     # loop through until reach the end of the sprite sheet
     count = 0
-    for y in range(0, sheet_height//xsection):
-        for x in range(0, sheet_width//ysection):
+    for y in range(0, sheet_height // x_section):
+        for x in range(0, sheet_width // y_section):
             # check if out of range
             if count >= frames:
                 return frame_data
 
             # load the new image
-            rect = pygame.Rect(xoffset + xsection * x,
-                               yoffset + ysection * y,
+            rect = pygame.Rect(x_off + x_section * x,
+                               y_off + y_section * y,
                                width, height)
-            
+
             # rect = pygame.Rect(x * width, y * height, width, height)
             img = pygame.Surface(img_dimensions, flags=pygame.SRCALPHA, depth=32)
             img.blit(sprite_sheet, (0, 0), rect)
@@ -34,22 +92,3 @@ def load_animation_from_spritesheet(path, width, height, frames, xoffset, yoffse
             count += 1
 
     return frame_data
-
-
-class FileHandler:
-    images = {}
-
-    @staticmethod
-    def get_image(path):
-        if not path:
-            return
-        # check if file exists
-        if not os.path.exists(path):
-            return
-        # get the image file
-        if FileHandler.images.get(path):
-            return FileHandler.images.get(path)
-        # if not already loaded, load it in
-        img = pygame.image.load(path).convert()
-        FileHandler.images[path] = img
-        return img

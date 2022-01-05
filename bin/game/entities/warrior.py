@@ -13,6 +13,7 @@ warrior_lerp_amt = (30, 30)
 warrior_hitbox = (8, 8, 4, 4)
 warrior_hitbox_offsets = (4, 4)
 warrior_offsets = (0, 0)
+warrior_search_radius = 100
 
 
 def init():
@@ -45,10 +46,6 @@ class Warrior(entity.Entity):
         # don't move yet!
         # TODO - make movement script and entity AI
         # wander around for now
-        x = random.random() - 0.5
-        y = random.random() - 0.5
-        self.motion[0] += x
-        self.motion[1] += y
 
         self.pos[0] += self.motion[0]
         self.pos[1] += self.motion[1]
