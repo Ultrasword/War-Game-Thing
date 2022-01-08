@@ -1,39 +1,90 @@
-from bin import maths
+import pygame
+from bin.engine import event
+
+
+def render_text(window, font, text, pos, size=None, aa=True, color=(255, 255, 255), back=None):
+    """Render text onto a window"""
+    tf = font.render(text, aa, color, back)
+    if size:
+        tf = pygame.transform.scale(tf, (size[0] * len(text), size[1]))
+    # render text
+    window.blit(tf, pos)
 
 
 class Camera:
-    def __init__(self, offsets=None, pos=None, area=None, entity=None, lerp_amt=3):
-        # base variables
-        self.offsets = offsets
-        self.pos = pos
-        self.area = area
-        self.entity = entity
-        self.lerp_amt = lerp_amt
+    """Camera object for rendering and positioning while moving"""
 
-        if not self.offsets:
-            self.offsets = [0, 0]
-        if not self.pos:
-            self.pos = [0, 0]
-        if not self.area:
-            self.area = [1920, 1080]
+    def __init__(self, window_size=[1280, 720], target=None):
+        """Iniitalize a Camera Object"""
+        # default chunk position
+        self.chunkpos = [0, 0]
+        # zoom -> to be inplemented later
+        # TODO-implement zooming
+        self.zoom = [1, 1]
+        # default window area
+        self.area = window_size
+        # half area, no unecassary calculations
+        self.half_area = [self.area[0] // 2, self.area[1] // 2]
+        # center is just a more dynamic variable for the half area
+        self.center = self.half_area.copy()
+        # the target entity -> camera will follow this entity
+        self.target_entity = target
 
-        # other variables
-        self.center = [self.area[0] // 2, self.area[1] // 2]
+    def update_position_with_target(self):
+        """Render the world with the target entity at its center"""
+        if self.target_entity:
+            self.center = [self.half_area[0] - self.target_entity.pos[0] - self.target_entity.area[0] // 2,
+                           self.half_area[1] - self.target_entity.pos[1] - self.target_entity.area[1] // 2]
+            if self.chunkpos != self.target_entity.chunk:
+                pygame.event.post(event.FOCAL_CHANGE_EVENT)
+                self.chunkpos = self.target_entity.chunk
 
-    def update(self, dt):
-        # move the camera towards the entity
-        if not self.entity:
-            return
-        # if there is an entity, move towards it
-        self.pos = [maths.lerp(self.pos[0], self.entity.pos[0], self.lerp_amt * dt),
-                    maths.lerp(self.pos[1], self.entity.pos[1], self.lerp_amt * dt)]
+    def set_target(self, target):
+        """Set a target entity for the camera to follow"""
+        self.target_entity = target
 
-    def render(self, handler, frame):
-        frame.blits([[e.image, [e.pos[0] + e.offsets[0] + self.offsets[0],
-                                e.pos[1] + e.offsets[1] + self.offsets[1]]] for eid, e in handler.entities.items()])
+    def set_position(self, position):
+        """Set the position for the camera"""
+        self.center = [self.half_area[0] - position[0],
+                       self.half_area[1] - position[1]]
 
-    def update_render_entities(self, handler, frame, dt):
-        for entity in handler.entities:
-            entity.update(handler, dt)
-            frame.blit(entity.image, (entity.pos[0] + entity.offsets[0] + self.offsets[0],
-                                      entity.pos[1] + entity.offsets[1] + self.offsets[1]))
+    def render_and_update_with_camera(self, state, window, dt, render_dis):
+        """Render and update the screen with a camera"""
+        # render chunks first
+        for posstring in state.world.active_chunks:
+            if chunk := state.world.get_chunk(posstring):
+                chunk.render(window, state.world, self.center)
+        # next update the entities
+        for ent in state.handler.active_entities:
+            e = state.handler.entities[ent]
+            e.update(state.handler, dt)
+            if e.image:
+                window.blit(e.image, [int(e.pos[0] + e.offsets[0] + self.center[0]),
+                                      int(e.pos[1] + e.offsets[1] + self.center[1])])
+        # particles
+        state.particle.update_and_render_particles(window, dt)
+
+    def debug_render(self, world, window):
+        """Render the debug information -> hitboxes, chunk borders, etc"""
+        # render the debug info as well
+        for id, e in world.entities.items():
+            pygame.draw.lines(window, (255, 0, 0), True, (
+                (e.pos[0] + self.center[0], e.pos[1] + self.center[1]),
+                (e.pos[0] + self.center[0], e.pos[1] + e.area[1] + self.center[1]),
+                (e.pos[0] + e.area[0] + self.center[0], e.pos[1] + e.area[1] + self.center[1]),
+                (e.pos[0] + e.area[0] + self.center[0], e.pos[1] + self.center[1])
+            ), width=2)
+        # next you can render chunks
+
+    def render_at(self, window, img, x=None, y=None, xoff=0, yoff=0):
+        # calculate positiong
+        pos = [0, 0]
+        if x is not None:
+            pos[0] = x + xoff
+        else:
+            pos[0] = self.center[0] + xoff
+        if y is not None:
+            pos[1] = y + yoff
+        else:
+            pos[1] = self.center[1] + yoff
+        window.blit(img, pos)

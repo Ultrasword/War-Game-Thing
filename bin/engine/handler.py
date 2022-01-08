@@ -1,12 +1,20 @@
 import json
 import pygame
 from collections import deque
+from bin import maths
+from bin.engine import event
 from bin.engine import filehandler
+from bin.game import worldgeneration
 
 ENTITY_COUNT_LIMIT = int(1e5)
 CHUNK_SIZE = 16
-BLOCK_SIZE = 128
+BLOCK_SIZE = 64
 CHUNK_SIZE_PIX = CHUNK_SIZE * BLOCK_SIZE
+CHUNK_BLOCK_WIDTH = 40
+CHUNK_BLOCK_HEIGHT = 40
+
+# simplex noise
+SIMPLEX_NOISE = None
 
 
 class Handler:
@@ -53,35 +61,94 @@ class Handler:
         # during next update
 
 
+def get_chunk(x, y, biome, simplex):
+    """Loads Chunks given the x and y position of a chunk"""
+    l = CHUNK_BLOCK_WIDTH * x
+    t = CHUNK_BLOCK_HEIGHT * y
+    # TODO - set a designated color deciding function
+    col = (127, 127, 127)
+    biome_data = pygame.Surface((CHUNK_BLOCK_WIDTH, CHUNK_BLOCK_HEIGHT), pygame.SRCALPHA, 32).convert()
+    for y in range(CHUNK_BLOCK_WIDTH):
+        for x in range(CHUNK_BLOCK_HEIGHT):
+            value = biome.filter2d(simplex, (x+l) / CHUNK_BLOCK_WIDTH, (y+t) / CHUNK_BLOCK_HEIGHT)
+            biome_data.set_at((x,y), list(map(lambda x: int(x*(value+1)), col)))
+    return biome_data
+
+
 class Chunk:
-    def __init__(self, x, y, data=None):
+
+    def __init__(self, x, y, data=None, terrain=None):
         # block = [img_pointer, x, y, w, h, z]
         self.blocks = deque(data if data else [])
+        # also terrain deque
+        self.terrain = terrain
+        # the pos string
         self.pos = f"{x}.{y}"
+        # the chunk position offset
+        self.x = x
+        self.y = y
+        self.pos_offset = (x * CHUNK_SIZE_PIX, y * CHUNK_SIZE_PIX)
         # a list of ids
         self.entities = set()
+    
+    def start(self, simplex, biome):
+        if not self.terrain:
+            self.terrain = get_chunk(self.x, self.y, biome, simplex)
 
-    def render(self, window):
-        window.blits([[filehandler.LOADED_IMAGES[b[0]], (b[0], b[1])] for b in self.blocks if b])
+    def render(self, window, world, offset=(0,0)):
+        # 2 stage rendering process
+        # render the terrain -> terrain should be one singular pygame surface object
+        window.blit(pygame.transform.scale(self.terrain, (CHUNK_SIZE_PIX, CHUNK_SIZE_PIX)),
+                    (self.pos_offset[0] + offset[0], self.pos_offset[1] + offset[1]))
+        # render the blocks
 
 
 class World:
-    def __init__(self):
-
+    def __init__(self, seed=None, biome=None):
         # should just be a 2D world so chunks are not required
         # there is also a limited amount of world space available
         # TODO - perlin noise and find out how big the world is -> ask ethan
         self.chunks = {}
         self.active_chunks = []
+        self.simplex_gen = worldgeneration.WorldGenerator(seed=seed)
+        self.biome = biome if biome else worldgeneration.Biome()
 
-    def get_chunk(self, pos):
-        result = self.chunks.get(pos)
+    def calculate_relavent_chunks(self, focus_point, render_distance, l_bor=None, r_bor=None, t_bor=None, b_bor = None):
+        """Recalculates all relavent chunks in order to lower cpu usage - should be used on chunk change event"""
+        center_chunk = (maths.mod(focus_point[0], CHUNK_SIZE_PIX),
+                        maths.mod(focus_point[1], CHUNK_SIZE_PIX))
+        # clear active chunks
+        self.active_chunks.clear()
+        # all chunks should be within render distance
+        for x in range(-render_distance + center_chunk[0], render_distance + center_chunk[0] + 1):
+            if l_bor != None:
+                if x < l_bor:
+                    continue
+            if r_bor != None:
+                if x >= r_bor:
+                    continue
+            for y in range(-render_distance + center_chunk[1], render_distance + center_chunk[1] + 1):
+                if t_bor != None:
+                    if y < t_bor:
+                        continue
+                if b_bor != None:
+                    if y >= b_bor:
+                        continue
+                # check if chunk exists
+                p_string = f"{x}.{y}"
+                self.active_chunks.append(p_string)
+                if not self.get_chunk(p_string):
+                    self.add_chunk(Chunk(x, y))
+
+    def get_chunk(self, posstring):
+        result = self.chunks.get(posstring)
         if result:
             return result
-        x, y = map(int, pos.split("."))
-        self.chunks[pos] = Chunk(x, y)
+        x, y = map(int, posstring.split("."))
+        self.chunks[posstring] = Chunk(x, y)
 
     def add_chunk(self, chunk):
+        chunk.start(self.simplex_gen, self.biome)
         self.chunks[chunk.pos] = chunk
 
     def add_chunks(self, chunks):
@@ -89,7 +156,7 @@ class World:
 
     def render(self, window):
         for chunk in self.active_chunks:
-            chunk.render(window)
+            self.chunks[chunk].render(window, self)
 
 
 def change_mapped_key(key_num, value):
@@ -116,6 +183,6 @@ class InputHandler:
 
     def update(self, pygame_event):
         if pygame_event.type == pygame.KEYDOWN:
-            self.key_pressed[pygame_event.key] = False
-        elif pygame_event.type == pygame.KEYUP:
             self.key_pressed[pygame_event.key] = True
+        elif pygame_event.type == pygame.KEYUP:
+            self.key_pressed[pygame_event.key] = False

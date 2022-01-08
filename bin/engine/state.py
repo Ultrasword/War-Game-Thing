@@ -5,6 +5,12 @@ from collections import deque
 
 STATE_STACK = deque([])
 CURRENT_STATE = None
+INPUTHANDLER = None
+
+
+def init(inputhandler):
+    global INPUTHANDLER
+    INPUTHANDLER = inputhandler
 
 
 def push_state(state):
@@ -26,24 +32,27 @@ def push_left(state):
 
 class GameState:
 
-    def __init__(self, entities=None, chunks=None):
+    def __init__(self, entities=None, chunks=None, seed=None):
         if not entities:
             entities = []
         if not chunks:
             chunks = []
-        self.handler, self.world, self.particle = handler.Handler(), handler.World(), particle.ParticleHandler()
+        self.handler, self.world, self.particle = handler.Handler(), handler.World(seed=seed), particle.ParticleHandler()
         self.handler.add_entities(entities)
         self.world.add_chunks(chunks)
+
+    def update_cam(self, dt, camera):
+        pass
 
     def update(self, dt):
         self.handler.update(dt)
         self.particle.update_particles(dt)
-        # TODO - self.world.update()
+        # self.world.update()
 
     def render(self, window):
+        self.world.render(window)
         self.handler.render(window)
         self.particle.render_particles(window)
-        # TODO - self.world.render(window)
 
     def add_entity(self, entity):
         self.handler.add_entity(entity)
