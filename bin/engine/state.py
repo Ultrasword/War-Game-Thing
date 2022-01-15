@@ -6,11 +6,13 @@ from collections import deque
 STATE_STACK = deque([])
 CURRENT_STATE = None
 INPUTHANDLER = None
+CAMERA = None
 
 
-def init(inputhandler):
-    global INPUTHANDLER
+def init(inputhandler, camera):
+    global INPUTHANDLER, CAMERA
     INPUTHANDLER = inputhandler
+    CAMERA = camera
 
 
 def push_state(state):

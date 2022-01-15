@@ -1,5 +1,6 @@
 import pygame
 
+
 class Window:
     FULLSCREEN_SIZE = None
 

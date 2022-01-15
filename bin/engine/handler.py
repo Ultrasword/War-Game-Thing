@@ -1,17 +1,23 @@
 import json
 import pygame
+from PIL import Image as PIL_Image
 from collections import deque
 from bin import maths
 from bin.engine import event
 from bin.engine import filehandler
+from bin.engine import taskqueue
+from bin.engine import state
 from bin.game import worldgeneration
+from bin.game import tasks
 
 ENTITY_COUNT_LIMIT = int(1e5)
 CHUNK_SIZE = 16
 BLOCK_SIZE = 64
 CHUNK_SIZE_PIX = CHUNK_SIZE * BLOCK_SIZE
-CHUNK_BLOCK_WIDTH = 40
-CHUNK_BLOCK_HEIGHT = 40
+CHUNK_BLOCK_WIDTH = 20
+CHUNK_BLOCK_HEIGHT = 20
+WORLD_CHUNK_WIDTH = 30
+WORLD_CHUNK_HEIGHT = 30
 
 # simplex noise
 SIMPLEX_NOISE = None
@@ -71,8 +77,13 @@ def get_chunk(x, y, biome, simplex):
     for y in range(CHUNK_BLOCK_WIDTH):
         for x in range(CHUNK_BLOCK_HEIGHT):
             value = biome.filter2d(simplex, (x+l) / CHUNK_BLOCK_WIDTH, (y+t) / CHUNK_BLOCK_HEIGHT)
-            biome_data.set_at((x,y), list(map(lambda x: int(x*(value+1)), col)))
+            biome_data.set_at((x,y), biome.color_func(value))
     return biome_data
+
+
+def save_terrain(directory, chunkx, chunky, terrain):
+    pil_image = PIL_Image.frombytes("RGBA", terrain.get_size(), pygame.image.tostring(terrain, "RGBA", False))
+    pil_image.save(f"{directory}/{chunkx}.{chunky}.png")
 
 
 class Chunk:
@@ -81,7 +92,8 @@ class Chunk:
         # block = [img_pointer, x, y, w, h, z]
         self.blocks = deque(data if data else [])
         # also terrain deque
-        self.terrain = terrain
+        self.raw_terrain = terrain
+        self.terrain = None
         # the pos string
         self.pos = f"{x}.{y}"
         # the chunk position offset
@@ -92,15 +104,17 @@ class Chunk:
         self.entities = set()
     
     def start(self, simplex, biome):
-        if not self.terrain:
-            self.terrain = get_chunk(self.x, self.y, biome, simplex)
+        if not self.raw_terrain:
+            self.raw_terrain = get_chunk(self.x, self.y, biome, simplex)
+            # save_terrain("assets/test/fastload", self.x, self.y, self.terrain)
+        self.terrain = pygame.transform.scale(self.raw_terrain, (CHUNK_SIZE_PIX, CHUNK_SIZE_PIX))
 
     def render(self, window, world, offset=(0,0)):
         # 2 stage rendering process
         # render the terrain -> terrain should be one singular pygame surface object
-        window.blit(pygame.transform.scale(self.terrain, (CHUNK_SIZE_PIX, CHUNK_SIZE_PIX)),
-                    (self.pos_offset[0] + offset[0], self.pos_offset[1] + offset[1]))
-        # render the blocks
+        # window.blit(pygame.transform.scale(self.terrain, (CHUNK_SIZE_PIX, CHUNK_SIZE_PIX)),
+        #            (self.pos_offset[0] + offset[0], self.pos_offset[1] + offset[1]))
+        window.blit(self.terrain, (self.pos_offset[0] + offset[0], self.pos_offset[1] + offset[1]))
 
 
 class World:
@@ -112,6 +126,7 @@ class World:
         self.active_chunks = []
         self.simplex_gen = worldgeneration.WorldGenerator(seed=seed)
         self.biome = biome if biome else worldgeneration.Biome()
+        self.chunk_loader = tasks.InitiateChunks([])
 
     def calculate_relavent_chunks(self, focus_point, render_distance, l_bor=None, r_bor=None, t_bor=None, b_bor = None):
         """Recalculates all relavent chunks in order to lower cpu usage - should be used on chunk change event"""
@@ -119,6 +134,7 @@ class World:
                         maths.mod(focus_point[1], CHUNK_SIZE_PIX))
         # clear active chunks
         self.active_chunks.clear()
+        queue = []
         # all chunks should be within render distance
         for x in range(-render_distance + center_chunk[0], render_distance + center_chunk[0] + 1):
             if l_bor != None:
@@ -138,14 +154,19 @@ class World:
                 p_string = f"{x}.{y}"
                 self.active_chunks.append(p_string)
                 if not self.get_chunk(p_string):
-                    self.add_chunk(Chunk(x, y))
+                    queue.append((x, y))
+        taskqueue.queue_light_task(tasks.InitiateChunks(queue))
+        print(self.active_chunks)
 
-    def get_chunk(self, posstring):
+    def get_chunk(self, posstring, auto_start=True):
         result = self.chunks.get(posstring)
         if result:
             return result
         x, y = map(int, posstring.split("."))
-        self.chunks[posstring] = Chunk(x, y)
+        result = Chunk(x, y)
+        self.chunks[posstring] = result
+        if auto_start:
+            result.start(self.simplex_gen, self.biome)
 
     def add_chunk(self, chunk):
         chunk.start(self.simplex_gen, self.biome)

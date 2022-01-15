@@ -29,13 +29,28 @@ class WorldGenerator:
         return self.simplex.noise4array(x, y, z, w)
 
 
+b_col = (127, 127, 127)
+
+
+def default_col_func(result):
+    c = int((result/2+1.5) * 128)
+    return c//7, c, c//4
+
+
 class Biome(object):
-    def __init__(self, gradient=1, clamp=0, xfreq=1, yfreq=1):
+    def __init__(self, gradient=1, clamp=0, xfreq=1, yfreq=1, color_func=None):
         super(Biome, self).__init__()
         self.gradient = gradient
         self.clamp = clamp
         self.xfreq = xfreq
         self.yfreq = yfreq
+        if color_func:
+            self._col_func = color_func
+        else:
+            self._col_func = default_col_func
 
     def filter2d(self, simplex, x, y):
         return (simplex.noise2(x*self.xfreq, y*self.yfreq) ** self.gradient) - self.clamp
+
+    def color_func(self, result):
+        return self._col_func(result)

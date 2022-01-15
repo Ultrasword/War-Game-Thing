@@ -1,5 +1,6 @@
 import pygame
-from bin.engine import event
+from bin import maths
+from bin.engine import event, handler
 
 
 def render_text(window, font, text, pos, size=None, aa=True, color=(255, 255, 255), back=None):
@@ -47,12 +48,23 @@ class Camera:
         """Set the position for the camera"""
         self.center = [self.half_area[0] - position[0],
                        self.half_area[1] - position[1]]
+        # calculate pos and demonstrate chunk changes
+        f = False
+        pos = (-self.center[0] // handler.CHUNK_SIZE_PIX, -self.center[1] // handler.CHUNK_SIZE_PIX)
+        if pos[0] != self.chunkpos[0]:
+            self.chunkpos[0] = pos[0]
+            f = True
+        if pos[1] != self.chunkpos[1]:
+            self.chunkpos[1] = pos[1]
+            f = True
+        if f:
+            pygame.event.post(event.FOCAL_CHANGE_EVENT)
 
-    def render_and_update_with_camera(self, state, window, dt, render_dis):
+    def render_and_update_with_camera(self, state, window, dt):
         """Render and update the screen with a camera"""
         # render chunks first
-        for posstring in state.world.active_chunks:
-            if chunk := state.world.get_chunk(posstring):
+        for p_string in state.world.active_chunks:
+            if chunk := state.world.get_chunk(p_string):
                 chunk.render(window, state.world, self.center)
         # next update the entities
         for ent in state.handler.active_entities:

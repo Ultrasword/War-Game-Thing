@@ -10,6 +10,8 @@ def mod(x, y):
 
 
 def fast_square(x):
+    if not x:
+        return x
     a = 2
     n = 1
     c = 0
