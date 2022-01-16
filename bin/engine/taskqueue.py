@@ -1,4 +1,6 @@
-from multiprocessing import Pool
+from multiprocessing import Process
+from multiprocessing.shared_memory import SharedMemory, ShareableList
+
 
 import threading
 import time
@@ -80,6 +82,15 @@ def update_heavy_task(world, dt):
                         current_heavy_tasks[i] = None
                         heavy_queue_size -= 1
     pause_counter += 1
+
+
+def multiprocess_handler(shared_memory):
+    print("outputting data in thread")
+    print(shared_memory.buf)
+    while shared_memory.buf[0]:
+        print("is true")
+        time.sleep(0.1)
+    shared_memory.unlink()
 
 
 class Task(object):

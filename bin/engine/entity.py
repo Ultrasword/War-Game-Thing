@@ -6,9 +6,11 @@ from bin.engine import state
 
 class Entity:
     def __init__(self, pos=None, area=None, image_file=None, search_radius=0):
-        self.pos = list(pos)
-        if len(self.pos) < 3:
-            self.pos.append(0)
+        self.pos = list(pos)[:3]
+        if len(pos) == 3:
+            self.z = pos[2]
+        else:
+            self.z = 0
         self.area = list(area)
         self.center = [pos[0] - area[0] // 2, pos[1] - area[1] // 2]
         self.image_file = image_file

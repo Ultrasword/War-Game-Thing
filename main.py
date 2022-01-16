@@ -48,8 +48,7 @@ def main():
 
     state.CURRENT_STATE.world.calculate_relavent_chunks(state.CAMERA.chunkpos, RENDER_DISTANCE)
     # print(state.CURRENT_STATE.world.active_chunks)
-    state.CURRENT_STATE.world.get_chunk("0.0").add_block(["C:/Users/peter.zhang/Pictures"
-                                                          "/7fd9d40dfccbfe91a7ca6345e6e51845.jpg", 0, 0, 100, 100, 0])
+    state.CURRENT_STATE.world.get_chunk("0.0").add_block(["assets/kirb.jpeg", 0, 0, 100, 100, 0])
     taskqueue.set_pause_loops(2)
 
     # create a warrior!

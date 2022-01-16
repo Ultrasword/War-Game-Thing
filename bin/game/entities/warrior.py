@@ -10,7 +10,6 @@ from bin.engine import animation
 warrior_animations = None
 warrior_area = [32, 32]
 warrior_lerp_amt = (30, 30)
-warrior_hitbox = [8, 8, 64, 64]
 warrior_hitbox_offsets = [0, 0]
 warrior_offsets = [0, 0]
 warrior_search_radius = 100
@@ -31,8 +30,7 @@ class Warrior(entity.Entity):
         # get image for the warrior
         self.image = self.animation_access.get_frame(warrior_animations)
 
-        # set hitbox and lerp variables
-        self.hitbox = warrior_hitbox
+        # set and lerp variables
         self.offsets = warrior_offsets
         self.hitbox_offsets = warrior_hitbox_offsets
         self.lerp_amt = warrior_lerp_amt

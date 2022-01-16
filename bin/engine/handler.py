@@ -201,15 +201,17 @@ class World:
             self.chunks[chunk].render(window, self)
 
     def is_collided(self, hitbox, other):
-        # block = [img_pointer, x, y, w, h, z]
-        if hitbox[0] + hitbox[2] < other[1]:
-            return True
-        if hitbox[0] > other[1] + other[3]:
-            return True
-        if hitbox[1] + hitbox[3] < other[2]:
-            return True
-        if hitbox[1] > other[2] + other[4]:
-            return True
+        # other = [x, y, w, h, z]
+        # hitbox = [x, y, w, h, z]
+        # print(hitbox, other)
+        if hitbox[0] + hitbox[2] < other[0]:
+            return False
+        if hitbox[0] > other[0] + other[2]:
+            return False
+        if hitbox[1] + hitbox[3] < other[1]:
+            return False
+        if hitbox[1] > other[1] + other[3]:
+            return False
         return True
 
     def get_collided_chunks(self, entity, hitbox):
@@ -258,7 +260,7 @@ class World:
             # get the blocks in chunk
             # print("chunk: ", chunk)
             for block in self.get_chunk(chunk).blocks:
-                if self.is_collided(hit_area, block):
+                if self.is_collided(hit_area, block[1:]):
                     # if moving left
                     if rounded[0] < 0:
                         # set position to the right of the block
@@ -271,7 +273,7 @@ class World:
         for chunk in self.get_collided_chunks(entity, hit_area):
             # get the blocks in the chunk
             for block in self.get_chunk(chunk).blocks:
-                if self.is_collided(hit_area, block):
+                if self.is_collided(hit_area, block[1:]):
                     if rounded[1] < 0:
                         # set position to the bottom of the block
                         hit_area[1] = block[2] + block[4]

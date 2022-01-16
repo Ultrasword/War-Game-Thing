@@ -71,8 +71,8 @@ class Camera:
             e = state.handler.entities[ent]
             e.update(state.handler, state.world, dt)
             if e.image:
-                window.blit(e.image, [int(e.hitbox[0] + e.offsets[0] + self.center[0]),
-                                      int(e.hitbox[1] + e.offsets[1] + self.center[1])])
+                window.blit(e.image, [int(e.pos[0] + e.offsets[0] + self.center[0]),
+                                      int(e.pos[1] + e.offsets[1] + self.center[1])])
         # particles
         state.particle.update_and_render_particles(window, dt)
 
