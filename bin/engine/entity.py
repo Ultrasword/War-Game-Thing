@@ -12,6 +12,7 @@ class Entity:
         else:
             self.z = 0
         self.area = list(area)
+        self.hitbox_offsets = [0, 0]
         self.center = [pos[0] - area[0] // 2, pos[1] - area[1] // 2]
         self.image_file = image_file
         self.image = None
@@ -27,12 +28,11 @@ class Entity:
         if self.image_file:
             self.image = filehandler.get_image(image_file)
 
-        self.chunk = [self.pos[0] // handler.CHUNK_SIZE_PIX,
-                      self.pos[1] // handler.CHUNK_SIZE_PIX]
+        self.chunk = [int(self.pos[0] // handler.CHUNK_SIZE_PIX),
+                      int(self.pos[1] // handler.CHUNK_SIZE_PIX)]
         self.chunk_str = f"{self.chunk[0]}.{self.chunk[1]}"
         self.motion = [0, 0]
         self.offsets = [0, 0]
-        self.hitbox_offsets = [0, 0]
         self.lerp_amt = [0, 0]
         self.speed_multipliers = [0, 0]
         self.xflip = False

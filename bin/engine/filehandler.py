@@ -17,6 +17,10 @@ def num_to_size(num):
     return [(w := (num >> 8) - 1), num - (w < 8)]
 
 
+def load_loaded_image(img, size):
+    pass
+
+
 def get_image(path, size=None):
     # CHECK IF FILE EXISTS
     if not os.path.exists(path):

@@ -109,7 +109,7 @@ class Chunk:
             # save_terrain("assets/test/fastload", self.x, self.y, self.terrain)
         self.terrain = pygame.transform.scale(self.raw_terrain, (CHUNK_SIZE_PIX, CHUNK_SIZE_PIX))
 
-    def render(self, window, world, offset=(0,0)):
+    def render(self, window, world, offset=(0, 0)):
         # 2 stage rendering process
         # render the terrain -> terrain should be one singular pygame surface object
         # window.blit(pygame.transform.scale(self.terrain, (CHUNK_SIZE_PIX, CHUNK_SIZE_PIX)),
@@ -267,7 +267,7 @@ class World:
                         hit_area[0] = block[1] + block[3]
                     elif rounded[0] > 0:
                         # set position to the left of the block
-                        hit_area[0] = block[1] - block[3]
+                        hit_area[0] = block[1] - hit_area[2] - 1
 
         hit_area[1] += entity.motion[1]
         for chunk in self.get_collided_chunks(entity, hit_area):
@@ -279,7 +279,7 @@ class World:
                         hit_area[1] = block[2] + block[4]
                     elif rounded[1] > 0:
                         # set position to the left of the block
-                        hit_area[1] = block[2] - block[4]
+                        hit_area[1] = block[2] - hit_area[3] - 1
 
         entity.pos = [hit_area[0] - entity.hitbox_offsets[0], hit_area[1] - entity.hitbox_offsets[1]]
         entity.update_pos(state.CURRENT_STATE.world)

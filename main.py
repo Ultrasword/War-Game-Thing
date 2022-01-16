@@ -48,7 +48,7 @@ def main():
 
     state.CURRENT_STATE.world.calculate_relavent_chunks(state.CAMERA.chunkpos, RENDER_DISTANCE)
     # print(state.CURRENT_STATE.world.active_chunks)
-    state.CURRENT_STATE.world.get_chunk("0.0").add_block(["assets/kirb.jpeg", 0, 0, 100, 100, 0])
+    state.CURRENT_STATE.world.get_chunk("0.0").add_block(["assets/kirb.jpeg", 400, 400, 100, 100, 0])
     taskqueue.set_pause_loops(2)
 
     # create a warrior!
@@ -62,6 +62,7 @@ def main():
 
     running = True
     Clock.start()
+    count = 1
     while running:
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
@@ -85,6 +86,13 @@ def main():
             # handle mouse press
             elif e.type == pygame.MOUSEBUTTONDOWN:
                 state.USER.mouse.mouse_press(e)
+                # TODO - remove
+                if e.button == 1:
+                    p = state.USER.mouse.get_pos()
+                    p = (p[0] - state.CAMERA.center[0], p[1] - state.CAMERA.center[1])
+                    state.CURRENT_STATE.add_entity(game.warrior.Warrior(p))
+                    count += 1
+                    print(count)
             elif e.type == pygame.MOUSEBUTTONUP:
                 state.USER.mouse.mouse_release(e)
             # special event
