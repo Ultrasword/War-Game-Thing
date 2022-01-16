@@ -22,6 +22,8 @@ running = False
 current_heavy_tasks = deque([None, None])
 current_light_tasks = deque([None, None, None, None, None])
 
+has_new_task = False
+
 
 # TODO - we make lighter computations - make it so that the computer runs each process
 #       in chunks compared to a bulk. This should reduce in game lag by a bit

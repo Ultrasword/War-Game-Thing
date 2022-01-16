@@ -35,12 +35,12 @@ class Handler:
         # holds only entity ids -> the position of the entity in the self.entities list
         self.active_entities = deque([])
 
-    def update(self, dt):
+    def update(self, world, dt):
         for eid, entity in self.entities.items():
             if not entity:
                 self.entities.pop(eid)
                 continue
-            entity.update(self, dt)
+            entity.update(self, world, dt)
             # check if entity in range or not in range
             # everything will be updated regardless of being active or not
 
@@ -116,6 +116,15 @@ class Chunk:
         #            (self.pos_offset[0] + offset[0], self.pos_offset[1] + offset[1]))
         window.blit(self.terrain, (self.pos_offset[0] + offset[0], self.pos_offset[1] + offset[1]))
 
+    def add_entity(self, eid):
+        self.entities.add(eid)
+
+    def entity_in_chunk(self, eid):
+        return eid in self.entities
+
+    def remove_entity(self, eid):
+        self.entities.remove(eid)
+
 
 class World:
     def __init__(self, seed=None, biome=None):
@@ -156,12 +165,13 @@ class World:
                 if not self.get_chunk(p_string):
                     queue.append((x, y))
         taskqueue.queue_light_task(tasks.InitiateChunks(queue))
-        print(self.active_chunks)
+        # print(self.active_chunks)
 
     def get_chunk(self, posstring, auto_start=True):
         result = self.chunks.get(posstring)
         if result:
             return result
+        print(posstring)
         x, y = map(int, posstring.split("."))
         result = Chunk(x, y)
         self.chunks[posstring] = result
@@ -175,35 +185,23 @@ class World:
     def add_chunks(self, chunks):
         map(self.add_chunk, chunks)
 
+    def add_entity(self, eid, chunk_str):
+        self.get_chunk(chunk_str).add_entity(eid)
+
     def render(self, window):
         for chunk in self.active_chunks:
             self.chunks[chunk].render(window, self)
 
+    def get_collisions(self, entity):
+        cp = entity.chunk_str
+        # print(cp)
+        hitbox = entity.hitbox
+        # check if the entity is leaving its own chunk first
 
-def change_mapped_key(key_num, value):
-    InputHandler.default_key_map[key_num] = value
+    # entity related functions
+    def move_entity(self, entity, motion):
+        # move entity and handle collisions
+        entity.pos[0] += motion[0]
+        self.get_collisions(entity)
+        pass
 
-
-class InputHandler:
-    default_key_map = {
-        pygame.K_w: 'up',
-        pygame.K_s: 'down',
-        pygame.K_d: 'right',
-        pygame.K_a: 'left',
-        pygame.K_SPACE: 'jump',
-        pygame.K_LSHIFT: 'shift',
-        pygame.K_ESCAPE: 'esc'
-    }
-
-    def __init__(self):
-        self.keymap = InputHandler.default_key_map
-        self.key_pressed = {x: False for x in InputHandler.default_key_map.values()}
-
-    def pressed(self, key):
-        return self.key_pressed.get(key)
-
-    def update(self, pygame_event):
-        if pygame_event.type == pygame.KEYDOWN:
-            self.key_pressed[pygame_event.key] = True
-        elif pygame_event.type == pygame.KEYUP:
-            self.key_pressed[pygame_event.key] = False

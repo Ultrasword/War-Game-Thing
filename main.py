@@ -3,12 +3,14 @@ import os
 import json
 import pygame
 import random
+from multiprocessing import Process
 
 from pygame._sdl2.video import Window as sdlWindow
 
 from bin import game
+from bin.game import components
 from bin.engine import *
-from bin.engine import state, particle, event, taskqueue
+from bin.engine import state, particle, event, taskqueue, ui
 
 
 os.environ['SDL_VIDEO_CENTERED'] = '1'
@@ -28,11 +30,11 @@ def main():
     Clock = clock.Clock(60)
     # Handler = handler.Handler()
     # World = handler.World()
-    InputHandler = handler.InputHandler()
 
     # init engine
     game.init()
-    state.init(inputhandler=InputHandler, camera=camera.Camera(window_size=window_scale_size))
+    state.init(camera=camera.Camera(window_size=window_scale_size))
+    state.USER = ui.User()
     frame_buffer = pygame.Surface(window_scale_size, pygame.SRCALPHA, 32).convert()
 
     state.push_state(game.gamestates.InGame(camera_pos=[window_scale_size[0]//2, window_scale_size[1]//2], seed=1))
@@ -50,9 +52,13 @@ def main():
     taskqueue.set_pause_loops(2)
 
     # create a warrior!
-    for i in range(10):
-        state.CURRENT_STATE.add_entity(game.warrior.Warrior((random.randint(0, 1920), random.randint(0, 1080)),
-                                                frame=random.randint(0, 4)))
+    # for i in range(10):
+    #     state.CURRENT_STATE.add_entity(game.warrior.Warrior((random.randint(0, 1920), random.randint(0, 1080)),
+    #                                             frame=random.randint(0, 4)))
+    state.CURRENT_STATE.add_entity(game.warrior.Warrior((1000, 100), frame=0))
+    # add systems
+    state.CURRENT_STATE.add_system(0, components.UserDragVisualiser())
+    state.USER.mouse.update_ratio(1280, 720, window_scale_size[0], window_scale_size[1])
 
     def test():
         # testing space ----------------------------------
@@ -69,13 +75,28 @@ def main():
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
                 running = False
+            # window resize
             elif e.type == pygame.WINDOWRESIZED:
                 Window.change_dimension(e.x, e.y)
-            elif e.type == pygame.KEYUP or e.type == pygame.KEYDOWN:
-                if e.key == pygame.K_F11 and e.type == pygame.KEYDOWN:
+                state.USER.mouse.update_ratio(e.x, e.y, window_scale_size[0], window_scale_size[1])
+            # keyboard - keydown
+            elif e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_F11:
                     Window.toggle_windowed_fullscreen()
                 else:
-                    InputHandler.update(e)
+                    state.USER.keyboard.press_key(e.key)
+            # keyboard - keyup
+            elif e.type == pygame.KEYUP:
+                state.USER.keyboard.release_key(e.key)
+            # handle mouse movement
+            elif e.type == pygame.MOUSEMOTION:
+                state.USER.mouse.mouse_move_update(e)
+            # handle mouse press
+            elif e.type == pygame.MOUSEBUTTONDOWN:
+                state.USER.mouse.mouse_press(e)
+            elif e.type == pygame.MOUSEBUTTONUP:
+                state.USER.mouse.mouse_release(e)
+            # special event
             elif e.type == event.FOCAL_CHANGE_EVENT_ID:
                 state.CURRENT_STATE.world.calculate_relavent_chunks(state.CAMERA.chunkpos, RENDER_DISTANCE, l_bor=0, t_bor=0)
             else:
@@ -89,11 +110,13 @@ def main():
         frame_buffer.fill(BACKGROUND_COLOR)
 
         # update tasks
+        state.CURRENT_STATE.update_systems(Clock.delta_time)
         taskqueue.update_heavy_task(state.CURRENT_STATE.world, Clock.delta_time)
         taskqueue.update_light_task(state.CURRENT_STATE.world, Clock.delta_time)
 
         # render with camera
         state.CAMERA.render_and_update_with_camera(state.CURRENT_STATE, frame_buffer, Clock.delta_time)
+        state.CURRENT_STATE.render_systems(frame_buffer)
 
         # render the frame_buffer onto the screen
         Window.window.blit(pygame.transform.scale(frame_buffer, Window.area), window_blit_location)

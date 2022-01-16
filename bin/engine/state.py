@@ -5,13 +5,12 @@ from collections import deque
 
 STATE_STACK = deque([])
 CURRENT_STATE = None
-INPUTHANDLER = None
 CAMERA = None
+USER = None
 
 
-def init(inputhandler, camera):
-    global INPUTHANDLER, CAMERA
-    INPUTHANDLER = inputhandler
+def init(camera):
+    global CAMERA
     CAMERA = camera
 
 
@@ -42,6 +41,7 @@ class GameState:
         self.handler, self.world, self.particle = handler.Handler(), handler.World(seed=seed), particle.ParticleHandler()
         self.handler.add_entities(entities)
         self.world.add_chunks(chunks)
+        self.systems = {}
 
     def update_cam(self, dt, camera):
         pass
@@ -56,8 +56,17 @@ class GameState:
         self.handler.render(window)
         self.particle.render_particles(window)
 
+    def update_systems(self, dt):
+        for system in self.systems.values():
+            system.update(self.world, self.handler, dt)
+
+    def render_systems(self, window):
+        for system in self.systems.values():
+            system.render(window)
+
     def add_entity(self, entity):
         self.handler.add_entity(entity)
+        self.world.add_entity(entity.id, entity.chunk_str)
 
     def add_chunk(self, chunk):
         self.world.add_chunk(chunk)
@@ -70,6 +79,12 @@ class GameState:
 
     def add_particle(self, x, y, mx, my, life, img_path, size=None, frame_time=None, custom_func=None):
         self.particle.add_particle(x, y, mx, my, life, img_path, size=size, frame_time=frame_time, custom_func=custom_func)
+
+    def add_system(self, name, system):
+        self.systems[name] = system
+
+    def remove_system(self, name):
+        self.systems.pop(name)
 
 
 def load_scene(path, scene=None):

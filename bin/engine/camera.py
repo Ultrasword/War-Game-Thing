@@ -69,7 +69,7 @@ class Camera:
         # next update the entities
         for ent in state.handler.active_entities:
             e = state.handler.entities[ent]
-            e.update(state.handler, dt)
+            e.update(state.handler, state.world, dt)
             if e.image:
                 window.blit(e.image, [int(e.pos[0] + e.offsets[0] + self.center[0]),
                                       int(e.pos[1] + e.offsets[1] + self.center[1])])

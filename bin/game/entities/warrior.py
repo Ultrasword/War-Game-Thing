@@ -37,7 +37,7 @@ class Warrior(entity.Entity):
         self.hitbox_offsets = warrior_hitbox_offsets
         self.lerp_amt = warrior_lerp_amt
 
-    def update(self, handler, dt):
+    def update(self, handler, world, dt):
         # update animation handler
         self.animation_access.update(dt)
         if self.animation_access.frame_changed:
@@ -47,14 +47,13 @@ class Warrior(entity.Entity):
         # TODO - make movement script and entity AI
         # wander around for now
 
-        self.pos[0] += self.motion[0]
-        self.pos[1] += self.motion[1]
-
         self.motion = [lerp(self.motion[0], 0.0, 0.3), lerp(self.motion[1], 0.0, 0.3)]
-
-        moving = False
+        world.move_entity(self, self.motion)
+        self.pos[0] += 100 * dt
+        self.dirty = True
+        self.update_pos(world)
 
         # move the entity in the world!
         # TODO - add world movement and collision detection between objects and entity
 
-        # add lerp!
+
