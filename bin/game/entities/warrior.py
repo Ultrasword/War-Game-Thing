@@ -8,11 +8,11 @@ from bin.engine import animation
 
 # open the warrior data file
 warrior_animations = None
-warrior_area = (32, 32)
+warrior_area = [32, 32]
 warrior_lerp_amt = (30, 30)
-warrior_hitbox = (8, 8, 4, 4)
-warrior_hitbox_offsets = (4, 4)
-warrior_offsets = (0, 0)
+warrior_hitbox = [8, 8, 64, 64]
+warrior_hitbox_offsets = [0, 0]
+warrior_offsets = [0, 0]
 warrior_search_radius = 100
 
 
@@ -39,18 +39,16 @@ class Warrior(entity.Entity):
 
     def update(self, handler, world, dt):
         # update animation handler
-        self.animation_access.update(dt)
-        if self.animation_access.frame_changed:
-            self.image = self.animation_access.get_frame(warrior_animations, self.xflip)
+        self.update_animation_handler(self.animation_access, warrior_animations, dt)
 
         # don't move yet!
         # TODO - make movement script and entity AI
         # wander around for now
+        self.motion[0] += 50 * dt
+        self.motion[1] += 50 * dt
 
         self.motion = [lerp(self.motion[0], 0.0, 0.3), lerp(self.motion[1], 0.0, 0.3)]
-        world.move_entity(self, self.motion)
-        self.pos[0] += 100 * dt
-        self.dirty = True
+        world.move_entity(self)
         self.update_pos(world)
 
         # move the entity in the world!

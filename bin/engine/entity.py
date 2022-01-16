@@ -7,8 +7,10 @@ from bin.engine import state
 class Entity:
     def __init__(self, pos=None, area=None, image_file=None, search_radius=0):
         self.pos = list(pos)
+        if len(self.pos) < 3:
+            self.pos.append(0)
         self.area = list(area)
-        self.center = [pos[0] + area[0] // 2, pos[1] + area[1] // 2]
+        self.center = [pos[0] - area[0] // 2, pos[1] - area[1] // 2]
         self.image_file = image_file
         self.image = None
         self.id = 0
@@ -23,7 +25,6 @@ class Entity:
         if self.image_file:
             self.image = filehandler.get_image(image_file)
 
-        self.hitbox = [self.pos[0], self.pos[1], self.area[0], self.area[1]]
         self.chunk = [self.pos[0] // handler.CHUNK_SIZE_PIX,
                       self.pos[1] // handler.CHUNK_SIZE_PIX]
         self.chunk_str = f"{self.chunk[0]}.{self.chunk[1]}"
@@ -33,12 +34,17 @@ class Entity:
         self.lerp_amt = [0, 0]
         self.speed_multipliers = [0, 0]
         self.xflip = False
+        self.change_chunks = True
+
+        # cache
+        self.collided_chunks = []
 
     def update_pos(self, world):
         if self.dirty:
             self.center = [self.pos[0] + self.area[0] // 2, self.pos[1] + self.area[1] // 2]
             self.dirty = False
-            # check if chunk changed
+
+            # check if leaking into other chunks
 
             new_chunk = (int(self.center[0] // handler.CHUNK_SIZE_PIX),
                          int(self.center[1] // handler.CHUNK_SIZE_PIX))
@@ -50,6 +56,12 @@ class Entity:
 
     def update(self, h, w, dt):
         pass
+
+    def update_animation_handler(self, h, data, dt):
+        h.update(dt)
+        if h.frame_changed:
+            self.dirty = True
+            self.image = h.get_frame(data, self.xflip)
 
     def distance_to(self, other):
         other.update_pos(state.CURRENT_STATE.world)

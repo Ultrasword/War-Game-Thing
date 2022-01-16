@@ -46,28 +46,20 @@ def main():
             state.CURRENT_STATE.add_chunk(ChunkObject(x, y,
                 terrain=pygame.image.load(f"assets/test/fastload/{x}.{y}.png").convert()))
 
-    state.CURRENT_STATE.world.calculate_relavent_chunks(state.CAMERA.chunkpos, RENDER_DISTANCE, l_bor=0, t_bor=0, r_bor=100,
-                                                        b_bor=100)
+    state.CURRENT_STATE.world.calculate_relavent_chunks(state.CAMERA.chunkpos, RENDER_DISTANCE)
     # print(state.CURRENT_STATE.world.active_chunks)
+    state.CURRENT_STATE.world.get_chunk("0.0").add_block(["C:/Users/peter.zhang/Pictures"
+                                                          "/7fd9d40dfccbfe91a7ca6345e6e51845.jpg", 0, 0, 100, 100, 0])
     taskqueue.set_pause_loops(2)
 
     # create a warrior!
     # for i in range(10):
     #     state.CURRENT_STATE.add_entity(game.warrior.Warrior((random.randint(0, 1920), random.randint(0, 1080)),
     #                                             frame=random.randint(0, 4)))
-    state.CURRENT_STATE.add_entity(game.warrior.Warrior((1000, 100), frame=0))
+    state.CURRENT_STATE.add_entity(game.warrior.Warrior((300, 300), frame=0))
     # add systems
     state.CURRENT_STATE.add_system(0, components.UserDragVisualiser())
     state.USER.mouse.update_ratio(1280, 720, window_scale_size[0], window_scale_size[1])
-
-    def test():
-        # testing space ----------------------------------
-
-        dot = pygame.Surface((5,5), 0, 32)
-        dot.fill((255,0,0))
-
-        # ------------------------------------------------
-    # test()
 
     running = True
     Clock.start()

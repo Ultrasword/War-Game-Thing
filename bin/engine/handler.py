@@ -102,7 +102,7 @@ class Chunk:
         self.pos_offset = (x * CHUNK_SIZE_PIX, y * CHUNK_SIZE_PIX)
         # a list of ids
         self.entities = set()
-    
+
     def start(self, simplex, biome):
         if not self.raw_terrain:
             self.raw_terrain = get_chunk(self.x, self.y, biome, simplex)
@@ -115,6 +115,10 @@ class Chunk:
         # window.blit(pygame.transform.scale(self.terrain, (CHUNK_SIZE_PIX, CHUNK_SIZE_PIX)),
         #            (self.pos_offset[0] + offset[0], self.pos_offset[1] + offset[1]))
         window.blit(self.terrain, (self.pos_offset[0] + offset[0], self.pos_offset[1] + offset[1]))
+        window.blits([[filehandler.get_image(b[0], (b[3], b[4])), (b[1] + offset[0], b[2] + offset[1])] for b in self.blocks])
+
+    def add_block(self, block):
+        self.blocks.append(block)
 
     def add_entity(self, eid):
         self.entities.add(eid)
@@ -136,8 +140,10 @@ class World:
         self.simplex_gen = worldgeneration.WorldGenerator(seed=seed)
         self.biome = biome if biome else worldgeneration.Biome()
         self.chunk_loader = tasks.InitiateChunks([])
+        self.textures = {}
 
-    def calculate_relavent_chunks(self, focus_point, render_distance, l_bor=None, r_bor=None, t_bor=None, b_bor = None):
+    def calculate_relavent_chunks(self, focus_point, render_distance, l_bor=0, r_bor=WORLD_CHUNK_WIDTH, t_bor=0,
+                                  b_bor=WORLD_CHUNK_HEIGHT):
         """Recalculates all relavent chunks in order to lower cpu usage - should be used on chunk change event"""
         center_chunk = (maths.mod(focus_point[0], CHUNK_SIZE_PIX),
                         maths.mod(focus_point[1], CHUNK_SIZE_PIX))
@@ -167,16 +173,18 @@ class World:
         taskqueue.queue_light_task(tasks.InitiateChunks(queue))
         # print(self.active_chunks)
 
-    def get_chunk(self, posstring, auto_start=True):
+    def get_chunk(self, posstring, create=True, auto_start=True):
         result = self.chunks.get(posstring)
         if result:
             return result
-        print(posstring)
+        if not create:
+            return
         x, y = map(int, posstring.split("."))
         result = Chunk(x, y)
         self.chunks[posstring] = result
         if auto_start:
             result.start(self.simplex_gen, self.biome)
+        return result
 
     def add_chunk(self, chunk):
         chunk.start(self.simplex_gen, self.biome)
@@ -192,16 +200,86 @@ class World:
         for chunk in self.active_chunks:
             self.chunks[chunk].render(window, self)
 
-    def get_collisions(self, entity):
-        cp = entity.chunk_str
-        # print(cp)
-        hitbox = entity.hitbox
-        # check if the entity is leaving its own chunk first
+    def is_collided(self, hitbox, other):
+        # block = [img_pointer, x, y, w, h, z]
+        if hitbox[0] + hitbox[2] < other[1]:
+            return True
+        if hitbox[0] > other[1] + other[3]:
+            return True
+        if hitbox[1] + hitbox[3] < other[2]:
+            return True
+        if hitbox[1] > other[2] + other[4]:
+            return True
+        return True
 
-    # entity related functions
-    def move_entity(self, entity, motion):
-        # move entity and handle collisions
-        entity.pos[0] += motion[0]
-        self.get_collisions(entity)
-        pass
+    def get_collided_chunks(self, entity, hitbox):
+        if not entity.change_chunks:
+            return entity.collided_chunks
+        # un toggle it
+        entity.change_chunks = False
+        # chunk pos string
+        cp = entity.chunk_str
+        # get chunk
+        chunk = self.get_chunk(cp, create=False)
+        # create result array
+        chunks = []
+        # store hitbox leaking
+        leaving = [0,0]
+        if hitbox[0] < chunk.pos_offset[0]:
+            leaving[0] -= 1
+        elif hitbox[0] + hitbox[2] > chunk.pos_offset[0] + CHUNK_SIZE_PIX:
+            leaving[0] += 1
+        if hitbox[1] < chunk.pos_offset[1]:
+            leaving[1] -= 1
+        elif hitbox[1] + hitbox[3] > chunk.pos_offset[1] + CHUNK_SIZE_PIX:
+            leaving[1] += 1
+
+        # now you add all the possible chunks :D, max - 2 x 2 check
+        lx = min(0, leaving[0]); rx = max(0, leaving[0])
+        ly = min(0, leaving[1]); ry = max(0, leaving[1])
+        for x in range(chunk.x + lx, chunk.x + rx+1):
+            for y in range(chunk.y + ly, chunk.y + ry+1):
+                chunks.append(f"{x}.{y}")
+        entity.collided_chunks = chunks
+        # [print(chunk, end="\t") for chunk in chunks]; print()
+        return chunks
+
+    def move_entity(self, entity):
+        # touching = [False, False, False, False]
+        #             left   top   right   bottom
+        # block = [img_pointer, x, y, w, h, z]
+
+        hit_area = [entity.pos[0] + entity.hitbox_offsets[0],
+                    entity.pos[1] + entity.hitbox_offsets[1],
+                    entity.area[0], entity.area[1]]
+        rounded = (round(entity.motion[0]), round(entity.motion[1]))
+        hit_area[0] += entity.motion[0]
+        for chunk in self.get_collided_chunks(entity, hit_area):
+            # get the blocks in chunk
+            # print("chunk: ", chunk)
+            for block in self.get_chunk(chunk).blocks:
+                if self.is_collided(hit_area, block):
+                    # if moving left
+                    if rounded[0] < 0:
+                        # set position to the right of the block
+                        hit_area[0] = block[1] + block[3]
+                    elif rounded[0] > 0:
+                        # set position to the left of the block
+                        hit_area[0] = block[1] - block[3]
+
+        hit_area[1] += entity.motion[1]
+        for chunk in self.get_collided_chunks(entity, hit_area):
+            # get the blocks in the chunk
+            for block in self.get_chunk(chunk).blocks:
+                if self.is_collided(hit_area, block):
+                    if rounded[1] < 0:
+                        # set position to the bottom of the block
+                        hit_area[1] = block[2] + block[4]
+                    elif rounded[1] > 0:
+                        # set position to the left of the block
+                        hit_area[1] = block[2] - block[4]
+
+        entity.pos = [hit_area[0] - entity.hitbox_offsets[0], hit_area[1] - entity.hitbox_offsets[1]]
+        entity.update_pos(state.CURRENT_STATE.world)
+
 

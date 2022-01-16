@@ -4,9 +4,6 @@ import os
 LOADED_IMAGES = {}
 
 
-import pygame
-import os
-
 LOADED = {}
 FONT = {}
 
