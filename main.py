@@ -49,8 +49,7 @@ def main():
     state.CURRENT_STATE.world.calculate_relavent_chunks(state.CAMERA.chunkpos, RENDER_DISTANCE)
     # print(state.CURRENT_STATE.world.active_chunks)
     state.CURRENT_STATE.world.get_chunk("0.0").add_block(["assets/kirb.jpeg", 400, 400, 100, 100, 0])
-    taskqueue.set_pause_loops(2)
-
+    taskqueue.set_pause_loops(100)
     # create a warrior!
     # for i in range(10):
     #     state.CURRENT_STATE.add_entity(game.warrior.Warrior((random.randint(0, 1920), random.randint(0, 1080)),
@@ -109,9 +108,11 @@ def main():
         frame_buffer.fill(BACKGROUND_COLOR)
 
         # update tasks
-        state.CURRENT_STATE.update_systems(Clock.delta_time)
-        taskqueue.update_heavy_task(state.CURRENT_STATE.world, Clock.delta_time)
-        taskqueue.update_light_task(state.CURRENT_STATE.world, Clock.delta_time)
+        while Clock.delta_time > 1:
+            state.CURRENT_STATE.update_systems(Clock.delta_time)
+            taskqueue.update_heavy_task(state.CURRENT_STATE.world, Clock.delta_time)
+            taskqueue.update_light_task(state.CURRENT_STATE.world, Clock.delta_time)
+            Clock.delta_time -= 1
 
         # render with camera
         state.CAMERA.render_and_update_with_camera(state.CURRENT_STATE, frame_buffer, Clock.delta_time)
