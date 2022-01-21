@@ -3,14 +3,13 @@ import os
 import json
 import pygame
 import random
-from multiprocessing import Process
 
 from pygame._sdl2.video import Window as sdlWindow
 
 from bin import game
 from bin.game import components
 from bin.engine import *
-from bin.engine import state, particle, event, taskqueue, ui
+from bin.engine import state, particle, event, taskqueue, ui, multiprocesshandling
 
 
 os.environ['SDL_VIDEO_CENTERED'] = '1'
@@ -28,28 +27,27 @@ def main():
     Window.sdlwindow = sdlWindow.from_display_module()
     Window.set_min_size(1280, 720)
     Clock = clock.Clock(60)
-    # Handler = handler.Handler()
-    # World = handler.World()
+    MemoryStorage = multiprocesshandling.MultiThreadedTaskHandler(max_threads=2)
 
     # init engine
     game.init()
-    state.init(camera=camera.Camera(window_size=window_scale_size))
+    state.init(camera=camera.Camera(window_size=window_scale_size), mp=MemoryStorage)
     state.USER = ui.User()
     frame_buffer = pygame.Surface(window_scale_size, pygame.SRCALPHA, 32).convert()
+    MemoryStorage.start(state.WORLD)
 
-    state.push_state(game.gamestates.InGame(camera_pos=[window_scale_size[0]//2, window_scale_size[1]//2], seed=1))
+    state.push_state(game.gamestates.InGame(MemoryStorage, camera_pos=[window_scale_size[0]//2, window_scale_size[1]//2], seed=1))
     # state.CURRENT_STATE.add_particle(100, 100, 30, 30, 20, "assets/animations/warrior/warrior_attack.png")
     # faster loading chunks instead of re-creating every time
     # testing purposes only
-    for x in range(3):
-        for y in range(3):
-            state.CURRENT_STATE.add_chunk(ChunkObject(x, y,
-                terrain=pygame.image.load(f"assets/test/fastload/{x}.{y}.png").convert()))
+    # for x in range(3):
+    #     for y in range(3):
+    #         state.CURRENT_STATE.add_chunk(ChunkObject(x, y,
+    #             terrain=pygame.image.load(f"assets/test/fastload/{x}.{y}.png").convert()))
 
-    state.CURRENT_STATE.world.calculate_relavent_chunks(state.CAMERA.chunkpos, RENDER_DISTANCE)
+    state.WORLD.calculate_relavent_chunks(state.CAMERA.chunkpos, RENDER_DISTANCE)
     # print(state.CURRENT_STATE.world.active_chunks)
-    state.CURRENT_STATE.world.get_chunk("0.0").add_block(["assets/kirb.jpeg", 400, 400, 100, 100, 0])
-    taskqueue.set_pause_loops(100)
+    state.WORLD.get_chunk("0.0").add_block(["assets/kirb.jpeg", 400, 400, 100, 100, 0])
     # create a warrior!
     # for i in range(10):
     #     state.CURRENT_STATE.add_entity(game.warrior.Warrior((random.randint(0, 1920), random.randint(0, 1080)),
@@ -59,13 +57,21 @@ def main():
     state.CURRENT_STATE.add_system(0, components.UserDragVisualiser())
     state.USER.mouse.update_ratio(1280, 720, window_scale_size[0], window_scale_size[1])
 
+    # ----------------------------- MEMORY -------------------------- #
+
+    # ----------------------------- ------ -------------------------- #
+
     running = True
+    # run processes
     Clock.start()
     count = 1
+    # game loop
     while running:
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
                 running = False
+                MemoryStorage.end()
+                break
             # window resize
             elif e.type == pygame.WINDOWRESIZED:
                 Window.change_dimension(e.x, e.y)
@@ -91,12 +97,11 @@ def main():
                     p = (p[0] - state.CAMERA.center[0], p[1] - state.CAMERA.center[1])
                     state.CURRENT_STATE.add_entity(game.warrior.Warrior(p))
                     count += 1
-                    print(count)
             elif e.type == pygame.MOUSEBUTTONUP:
                 state.USER.mouse.mouse_release(e)
             # special event
             elif e.type == event.FOCAL_CHANGE_EVENT_ID:
-                state.CURRENT_STATE.world.calculate_relavent_chunks(state.CAMERA.chunkpos, RENDER_DISTANCE, l_bor=0, t_bor=0)
+                state.WORLD.calculate_relavent_chunks(state.CAMERA.chunkpos, RENDER_DISTANCE, l_bor=0, t_bor=0)
             else:
                 # do later
                 pass
@@ -110,12 +115,10 @@ def main():
         # update tasks
         while Clock.delta_time > 1:
             state.CURRENT_STATE.update_systems(Clock.delta_time)
-            taskqueue.update_heavy_task(state.CURRENT_STATE.world, Clock.delta_time)
-            taskqueue.update_light_task(state.CURRENT_STATE.world, Clock.delta_time)
             Clock.delta_time -= 1
 
         # render with camera
-        state.CAMERA.render_and_update_with_camera(state.CURRENT_STATE, frame_buffer, Clock.delta_time)
+        state.CAMERA.render_and_update_with_camera(frame_buffer, Clock.delta_time)
         state.CURRENT_STATE.render_systems(frame_buffer)
 
         # render the frame_buffer onto the screen
@@ -124,6 +127,7 @@ def main():
         pygame.display.flip()
         Clock.update()
         Clock.wait()
+    MemoryStorage.close()
 
 
 if __name__ == "__main__":

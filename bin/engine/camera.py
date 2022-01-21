@@ -1,6 +1,6 @@
 import pygame
 from bin import maths
-from bin.engine import event, handler
+from bin.engine import event, handler, state
 
 
 def render_text(window, font, text, pos, size=None, aa=True, color=(255, 255, 255), back=None):
@@ -60,26 +60,26 @@ class Camera:
         if f:
             pygame.event.post(event.FOCAL_CHANGE_EVENT)
 
-    def render_and_update_with_camera(self, state, window, dt):
+    def render_and_update_with_camera(self, window, dt):
         """Render and update the screen with a camera"""
         # render chunks first
-        for p_string in state.world.active_chunks:
-            if chunk := state.world.get_chunk(p_string):
-                chunk.render(window, state.world, self.center)
+        for p_string in state.WORLD.active_chunks:
+            if chunk := state.WORLD.get_chunk(p_string, create=False):
+                chunk.render(window, state.WORLD, self.center)
         # next update the entities
-        for ent in state.handler.active_entities:
-            e = state.handler.entities[ent]
-            e.update(state.handler, state.world, dt)
+        for ent in state.HANDLER.active_entities:
+            e = state.HANDLER.entities[ent]
+            e.update(state.HANDLER, state.WORLD, dt)
             if e.image:
                 window.blit(e.image, [int(e.pos[0] + e.offsets[0] + self.center[0]),
                                       int(e.pos[1] + e.offsets[1] + self.center[1])])
         # particles
-        state.particle.update_and_render_particles(window, dt)
+        state.PARTICLE.update_and_render_particles(window, dt)
 
-    def debug_render(self, world, window):
+    def debug_render(self, window):
         """Render the debug information -> hitboxes, chunk borders, etc"""
         # render the debug info as well
-        for id, e in world.entities.items():
+        for id, e in state.WORLD.entities.items():
             pygame.draw.lines(window, (255, 0, 0), True, (
                 (e.pos[0] + self.center[0], e.pos[1] + self.center[1]),
                 (e.pos[0] + self.center[0], e.pos[1] + e.area[1] + self.center[1]),

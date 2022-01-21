@@ -96,6 +96,10 @@ class ParticleHandler:
         self.particles = {}
         self.remove_next = []
 
+    def reset(self):
+        self.particles.clear()
+        self.remove_next.clear()
+
     def w_and_h_to_num(self, w, h):
         return (w << 8) + h
 

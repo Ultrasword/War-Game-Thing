@@ -35,6 +35,10 @@ class Handler:
         # holds only entity ids -> the position of the entity in the self.entities list
         self.active_entities = deque([])
 
+    def reset(self):
+        self.entities.clear()
+        self.active_entities.clear()
+
     def update(self, world, dt):
         for eid, entity in self.entities.items():
             if not entity:
@@ -102,6 +106,9 @@ class Chunk:
         self.pos_offset = (x * CHUNK_SIZE_PIX, y * CHUNK_SIZE_PIX)
         # a list of ids
         self.entities = set()
+        # no image errors
+        for b in self.blocks:
+            filehandler.has_image(b[0], (b[3], b[4]))
 
     def start(self, simplex, biome):
         if not self.raw_terrain:
@@ -114,11 +121,13 @@ class Chunk:
         # render the terrain -> terrain should be one singular pygame surface object
         # window.blit(pygame.transform.scale(self.terrain, (CHUNK_SIZE_PIX, CHUNK_SIZE_PIX)),
         #            (self.pos_offset[0] + offset[0], self.pos_offset[1] + offset[1]))
-        window.blit(self.terrain, (self.pos_offset[0] + offset[0], self.pos_offset[1] + offset[1]))
-        window.blits([[filehandler.get_image(b[0], (b[3], b[4])), (b[1] + offset[0], b[2] + offset[1])] for b in self.blocks])
+        if self.terrain:
+            window.blit(self.terrain, (self.pos_offset[0] + offset[0], self.pos_offset[1] + offset[1]))
+        window.blits([[filehandler.load_loaded_image(b[0], (b[3], b[4])), (b[1] + offset[0], b[2] + offset[1])] for b in self.blocks])
 
     def add_block(self, block):
         self.blocks.append(block)
+        filehandler.has_image(block[0], (block[3], block[4]))
 
     def add_entity(self, eid):
         self.entities.add(eid)
@@ -131,16 +140,21 @@ class Chunk:
 
 
 class World:
-    def __init__(self, seed=None, biome=None):
+    def __init__(self, multiprocesshandler, seed=None, biome=None):
         # should just be a 2D world so chunks are not required
         # there is also a limited amount of world space available
-        # TODO - perlin noise and find out how big the world is -> ask ethan
         self.chunks = {}
         self.active_chunks = []
         self.simplex_gen = worldgeneration.WorldGenerator(seed=seed)
         self.biome = biome if biome else worldgeneration.Biome()
-        self.chunk_loader = tasks.InitiateChunks([])
         self.textures = {}
+        self.MultiprocessHandler = multiprocesshandler
+
+    def reset(self, seed=None, biome=None):
+        self.chunks.clear()
+        self.active_chunks.clear()
+        self.simplex_gen = worldgeneration.WorldGenerator(seed=seed)
+        self.biome = biome if biome else worldgeneration.Biome()
 
     def calculate_relavent_chunks(self, focus_point, render_distance, l_bor=0, r_bor=WORLD_CHUNK_WIDTH, t_bor=0,
                                   b_bor=WORLD_CHUNK_HEIGHT):
@@ -168,10 +182,10 @@ class World:
                 # check if chunk exists
                 p_string = f"{x}.{y}"
                 self.active_chunks.append(p_string)
-                if not self.get_chunk(p_string):
+                if not self.get_chunk(p_string, create=False):
                     queue.append((x, y))
-        taskqueue.queue_light_task(tasks.InitiateChunks(queue))
-        # print(self.active_chunks)
+        for pos in queue:
+            self.MultiprocessHandler.add_task(tasks.LoadChunk, (self.biome, self.simplex_gen, pos,))
 
     def get_chunk(self, posstring, create=True, auto_start=True):
         result = self.chunks.get(posstring)
@@ -187,14 +201,15 @@ class World:
         return result
 
     def add_chunk(self, chunk):
-        chunk.start(self.simplex_gen, self.biome)
+        self.MultiprocessHandler.add_task(tasks.LoadChunk, (self.biome, self.simplex_gen, chunk.pos))
+        # chunk.start(self.simplex_gen, self.biome)
         self.chunks[chunk.pos] = chunk
 
     def add_chunks(self, chunks):
         map(self.add_chunk, chunks)
 
     def add_entity(self, eid, chunk_str):
-        self.get_chunk(chunk_str).add_entity(eid)
+        self.get_chunk(chunk_str, create=False).add_entity(eid)
 
     def render(self, window):
         for chunk in self.active_chunks:
@@ -258,8 +273,10 @@ class World:
         hit_area[0] += entity.motion[0]
         for chunk in self.get_collided_chunks(entity, hit_area):
             # get the blocks in chunk
-            # print("chunk: ", chunk)
-            for block in self.get_chunk(chunk).blocks:
+            c = self.get_chunk(chunk, create=False)
+            if not c:
+                continue
+            for block in c.blocks:
                 if self.is_collided(hit_area, block[1:]):
                     # if moving left
                     if rounded[0] < 0:
@@ -272,7 +289,10 @@ class World:
         hit_area[1] += entity.motion[1]
         for chunk in self.get_collided_chunks(entity, hit_area):
             # get the blocks in the chunk
-            for block in self.get_chunk(chunk).blocks:
+            c = self.get_chunk(chunk, create=False)
+            if not c:
+                continue
+            for block in c.blocks:
                 if self.is_collided(hit_area, block[1:]):
                     if rounded[1] < 0:
                         # set position to the bottom of the block
@@ -282,6 +302,6 @@ class World:
                         hit_area[1] = block[2] - hit_area[3] - 1
 
         entity.pos = [hit_area[0] - entity.hitbox_offsets[0], hit_area[1] - entity.hitbox_offsets[1]]
-        entity.update_pos(state.CURRENT_STATE.world)
+        entity.update_pos(state.WORLD)
 
 

@@ -18,7 +18,17 @@ def num_to_size(num):
 
 
 def load_loaded_image(img, size):
-    pass
+    s = size_to_num(size)
+    return LOADED[s][img]
+
+
+def has_image(img, size):
+    s = size_to_num(size)
+    r = LOADED.get(s)
+    if not r:
+        get_image(img, size)
+    elif not r.get(img):
+        get_image(img, size)
 
 
 def get_image(path, size=None):
@@ -33,6 +43,7 @@ def get_image(path, size=None):
     if size:
         bytesize = size_to_num(size)
         # add the new size to LOADED
+        image = pygame.transform.scale(image, size)
     else:
         # get image size
         size = image.get_size()

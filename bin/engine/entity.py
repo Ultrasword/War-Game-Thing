@@ -51,9 +51,9 @@ class Entity:
             new_chunk = (int(self.center[0] // handler.CHUNK_SIZE_PIX),
                          int(self.center[1] // handler.CHUNK_SIZE_PIX))
             if new_chunk != self.chunk:
-                world.get_chunk(self.chunk_str).remove_entity(self.id)
+                world.get_chunk(self.chunk_str, auto_start=False).remove_entity(self.id)
                 self.chunk_str = f"{new_chunk[0]}.{new_chunk[1]}"
-                world.get_chunk(self.chunk_str).add_entity(self.id)
+                world.get_chunk(self.chunk_str, auto_start=False).add_entity(self.id)
                 self.chunk = new_chunk
 
     def update(self, h, w, dt):
@@ -89,7 +89,7 @@ def find_nearby(entity, world):
     for i in range(-search_half_width, search_half_width + 1):
         for j in range(-search_half_width, search_half_width + 1):
             p = f"{i}.{j}"
-            c = world.world.get_chunk(p)
+            c = world.world.get_chunk(p, create=False)
             # get each entity id - for each entity in the chunk
             for e in c.entities:
                 ent = world.handler.entities[e]

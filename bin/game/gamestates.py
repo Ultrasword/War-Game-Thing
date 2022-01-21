@@ -14,8 +14,8 @@ CAMERA_LERP = 0.5
 
 
 class InGame(state.GameState):
-    def __init__(self, camera_pos=[0,0], entities=None, chunks=None, seed=None):
-        super(InGame, self).__init__(entities, chunks, seed)
+    def __init__(self, mp, camera_pos=[0,0], entities=None, chunks=None, seed=None):
+        super(InGame, self).__init__(mp, entities, chunks, seed)
         global CAMERA_POSITION
         CAMERA_POSITION = camera_pos
         self.cam_border = [0, 0,

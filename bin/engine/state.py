@@ -7,11 +7,17 @@ STATE_STACK = deque([])
 CURRENT_STATE = None
 CAMERA = None
 USER = None
+WORLD = None
+HANDLER = None
+PARTICLE = None
 
 
-def init(camera):
-    global CAMERA
+def init(camera, mp, seed=None):
+    global CAMERA, WORLD, HANDLER, PARTICLE
     CAMERA = camera
+    WORLD = handler.World(multiprocesshandler=mp, seed=seed)
+    HANDLER = handler.Handler()
+    PARTICLE = particle.ParticleHandler()
 
 
 def push_state(state):
@@ -33,28 +39,29 @@ def push_left(state):
 
 class GameState:
 
-    def __init__(self, entities=None, chunks=None, seed=None):
+    def __init__(self, mp, entities=None, chunks=None, seed=None, reset=False):
         if not entities:
             entities = []
         if not chunks:
             chunks = []
-        self.handler, self.world, self.particle = handler.Handler(), handler.World(seed=seed), particle.ParticleHandler()
-        self.handler.add_entities(entities)
-        self.world.add_chunks(chunks)
+        if reset:
+            HANDLER.reset()
+            WORLD.reset()
+            PARTICLE.reset()
         self.systems = {}
 
     def update_cam(self, dt, camera):
         pass
 
     def update(self, dt):
-        self.handler.update(dt)
-        self.particle.update_particles(dt)
+        HANDLER.update(dt)
+        PARTICLE.update_particles(dt)
         # self.world.update()
 
     def render(self, window):
-        self.world.render(window)
-        self.handler.render(window)
-        self.particle.render_particles(window)
+        WORLD.render(window)
+        HANDLER.render(window)
+        PARTICLE.render_particles(window)
 
     def update_systems(self, dt):
         for system in self.systems.values():
@@ -65,20 +72,20 @@ class GameState:
             system.render(window)
 
     def add_entity(self, entity):
-        self.handler.add_entity(entity)
-        self.world.add_entity(entity.id, entity.chunk_str)
+        HANDLER.add_entity(entity)
+        WORLD.add_entity(entity.id, entity.chunk_str)
 
     def add_chunk(self, chunk):
-        self.world.add_chunk(chunk)
+        WORLD.add_chunk(chunk)
 
     def add_entities(self, entities):
-        self.handler.add_entities(entities)
+        HANDLER.add_entities(entities)
 
     def add_chunks(self, chunks):
-        self.world.add_chunks(chunks)
+        WORLD.add_chunks(chunks)
 
     def add_particle(self, x, y, mx, my, life, img_path, size=None, frame_time=None, custom_func=None):
-        self.particle.add_particle(x, y, mx, my, life, img_path, size=size, frame_time=frame_time, custom_func=custom_func)
+        PARTICLE.add_particle(x, y, mx, my, life, img_path, size=size, frame_time=frame_time, custom_func=custom_func)
 
     def add_system(self, name, system):
         self.systems[name] = system
