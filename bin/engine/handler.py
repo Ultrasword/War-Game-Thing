@@ -1,4 +1,6 @@
 import json
+import os.path
+
 import pygame
 from PIL import Image as PIL_Image
 from collections import deque
@@ -18,6 +20,7 @@ CHUNK_BLOCK_WIDTH = 20
 CHUNK_BLOCK_HEIGHT = 20
 WORLD_CHUNK_WIDTH = 30
 WORLD_CHUNK_HEIGHT = 30
+CACHE_PATH = "assets/cache"
 
 # simplex noise
 SIMPLEX_NOISE = None
@@ -45,6 +48,7 @@ class Handler:
                 self.entities.pop(eid)
                 continue
             entity.update(self, world, dt)
+            # TODO - decide if entities are active
             # check if entity in range or not in range
             # everything will be updated regardless of being active or not
 
@@ -91,7 +95,6 @@ def save_terrain(directory, chunkx, chunky, terrain):
 
 
 class Chunk:
-
     def __init__(self, x, y, data=None, terrain=None):
         # block = [img_pointer, x, y, w, h, z]
         self.blocks = deque(data if data else [])
@@ -140,21 +143,26 @@ class Chunk:
 
 
 class World:
-    def __init__(self, multiprocesshandler, seed=None, biome=None):
+    def __init__(self, multiprocesshandler, seed=None, biome=None, cache=False):
         # should just be a 2D world so chunks are not required
         # there is also a limited amount of world space available
         self.chunks = {}
-        self.active_chunks = []
+        self.active_chunks = set([])
         self.simplex_gen = worldgeneration.WorldGenerator(seed=seed)
         self.biome = biome if biome else worldgeneration.Biome()
         self.textures = {}
         self.MultiprocessHandler = multiprocesshandler
+        self.cache = cache
+        self.cached_chunks = {}
+        self.c_queue = set([])
+        self.c_next = set([])
 
     def reset(self, seed=None, biome=None):
         self.chunks.clear()
         self.active_chunks.clear()
         self.simplex_gen = worldgeneration.WorldGenerator(seed=seed)
         self.biome = biome if biome else worldgeneration.Biome()
+        self.clear_cache(CACHE_PATH)
 
     def calculate_relavent_chunks(self, focus_point, render_distance, l_bor=0, r_bor=WORLD_CHUNK_WIDTH, t_bor=0,
                                   b_bor=WORLD_CHUNK_HEIGHT):
@@ -162,8 +170,9 @@ class World:
         center_chunk = (maths.mod(focus_point[0], CHUNK_SIZE_PIX),
                         maths.mod(focus_point[1], CHUNK_SIZE_PIX))
         # clear active chunks
-        self.active_chunks.clear()
-        queue = []
+        self.c_queue.clear()
+        self.c_next.clear()
+        cache = []
         # all chunks should be within render distance
         for x in range(-render_distance + center_chunk[0], render_distance + center_chunk[0] + 1):
             if l_bor != None:
@@ -181,11 +190,38 @@ class World:
                         continue
                 # check if chunk exists
                 p_string = f"{x}.{y}"
-                self.active_chunks.append(p_string)
-                if not self.get_chunk(p_string, create=False):
-                    queue.append((x, y))
-        for pos in queue:
-            self.MultiprocessHandler.add_task(tasks.LoadChunk, (self.biome, self.simplex_gen, pos,))
+                self.c_next.add(p_string)
+                # check if we need to load the chunk
+                c = self.get_chunk(p_string, create=False)
+                if not c:
+                    self.c_queue.add(p_string)
+                    # if chunk is made but terrain is none, it is cached
+                else:
+                    if not c.raw_terrain:
+                        self.c_queue.add(p_string)
+        # check if chunk has already been loaded before - cache check
+        for item in self.c_next:
+            if self.cached_chunks.get(item):
+                # we need to load it from cache
+                x, y, = map(int, item.split("."))
+                self.MultiprocessHandler.add_task(tasks.LoadCacheChunk, (CACHE_PATH, x, y))
+            else:
+                # we create the chunk
+                x, y = map(int, item.split("."))
+                self.MultiprocessHandler.add_task(tasks.LoadChunk, (self.biome, self.simplex_gen, (x,y)))
+        for removed_chunk in self.active_chunks:
+            # check if it is not being used again
+            if removed_chunk not in self.c_next:
+                # for chunks that were removed, we need to cache them
+                # print("data ", removed_chunk)
+                chunk = self.get_chunk(removed_chunk, create=False)
+                if chunk:
+                    if chunk.raw_terrain:
+                        x, y = map(int, removed_chunk.split("."))
+                        self.MultiprocessHandler.add_task(tasks.SaveChunkData, (CACHE_PATH, x, y,
+                                                            pygame.image.tostring(chunk.raw_terrain, "RGBA", False),
+                                                                        chunk.raw_terrain.get_size()))
+        self.active_chunks = self.c_next.copy()
 
     def get_chunk(self, posstring, create=True, auto_start=True):
         result = self.chunks.get(posstring)
@@ -200,6 +236,9 @@ class World:
             result.start(self.simplex_gen, self.biome)
         return result
 
+    def remove_chunk(self, chunk_pos_string):
+        self.chunks.pop(chunk_pos_string)
+
     def add_chunk(self, chunk):
         self.MultiprocessHandler.add_task(tasks.LoadChunk, (self.biome, self.simplex_gen, chunk.pos))
         # chunk.start(self.simplex_gen, self.biome)
@@ -209,11 +248,20 @@ class World:
         map(self.add_chunk, chunks)
 
     def add_entity(self, eid, chunk_str):
-        self.get_chunk(chunk_str, create=False).add_entity(eid)
+        c = self.get_chunk(chunk_str, create=False)
+        if c:
+            c.add_entity(eid)
 
     def render(self, window):
         for chunk in self.active_chunks:
             self.chunks[chunk].render(window, self)
+
+    def clear_cache(self, location, output=False):
+        files = os.listdir(location)
+        for file in files:
+            os.remove(location + "/" + file)
+        if output:
+            print("Removed Cache from: ", location)
 
     def is_collided(self, hitbox, other):
         # other = [x, y, w, h, z]

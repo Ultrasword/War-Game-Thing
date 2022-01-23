@@ -173,14 +173,15 @@ class MultiThreadedTaskHandler:
             self.shared_memory.buf[i+self.max_threads] = False
             send, rec = self.Manager.get_pipe(f"{i}to")
             send.send((tasks.EndProcess, ()))
-            print([int(x) for x in self.shared_memory.buf])
+            # print([int(x) for x in self.shared_memory.buf])
+        # close threads
+        self.active.active = False
         self.Manager.close()
         print("closed")
         self.task_queue.clear()
 
     def close(self):
         """Close the Manager and threads"""
-        self.active.active = False
         self.get_thread("taskhandler").join()
         for thread in self.threads.values():
             thread.join()

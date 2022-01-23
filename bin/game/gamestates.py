@@ -7,7 +7,7 @@ from bin.engine import handler
 
 
 # constants
-CAMERA_MOVE_SPEED = 200
+CAMERA_MOVE_SPEED = 500
 CAMERA_MOTION = [0, 0]
 CAMERA_POSITION = [0, 0]
 CAMERA_LERP = 0.5

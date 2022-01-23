@@ -65,7 +65,7 @@ class GameState:
 
     def update_systems(self, dt):
         for system in self.systems.values():
-            system.update(self.world, self.handler, dt)
+            system.update(WORLD, HANDLER, dt)
 
     def render_systems(self, window):
         for system in self.systems.values():

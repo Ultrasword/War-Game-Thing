@@ -128,6 +128,7 @@ def main():
         Clock.update()
         Clock.wait()
     MemoryStorage.close()
+    state.WORLD.clear_cache(handler.CACHE_PATH)
 
 
 if __name__ == "__main__":

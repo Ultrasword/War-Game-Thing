@@ -33,8 +33,19 @@ b_col = (127, 127, 127)
 
 
 def default_col_func(result):
-    c = int((result/2+1.5) * 128)
-    return c//7, c, c//4
+    # change to higher map
+    r = (result+1) * 127
+    if r > 200:
+        # this is mountain
+        c = r//5
+        return c, c, c
+    elif r > 80:
+        # if this is plains area
+        c = r//5
+        return c+10, c+200, c+100
+    else:
+        # if this is water area
+        return 11, 136, 203
 
 
 class Biome(object):
