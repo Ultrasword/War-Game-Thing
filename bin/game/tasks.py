@@ -107,3 +107,32 @@ class LoadCacheChunk(TASK_OBJECT):
                                             (handler.CHUNK_SIZE_PIX, handler.CHUNK_SIZE_PIX))
 
 
+class ShrinkChunkImage(TASK_OBJECT):
+    def __init__(self, shared_memory, data):
+        """Instead of unloading the entire terrain, unload the scaled image and store the raw terrain image"""
+        super(ShrinkChunkImage, self).__init__(shared_memory)
+        self.p_string = data[0]
+
+    def run(self, send, uid):
+        # offload the scaled image
+        send.send((self.result, self.p_string))
+
+    def result(self, world, args):
+        chunk = world.get_chunk(args[0], create=False)
+        if chunk:
+            chunk.terrain = None
+            
+class IncreaseChunkImage(TASK_OBJECT):
+    def __init__(self, shared_memory, data):
+        """Instead of unloading the entire terrain, unload the scaled image and store the raw terrain image"""
+        super(IncreaseChunkImage, self).__init__(shared_memory)
+        self.p_string = data[0]
+
+    def run(self, send, uid):
+        # offload the scaled image
+        send.send((self.result, self.p_string))
+
+    def result(self, world, args):
+        chunk = world.get_chunk(args[0], create=False)
+        if chunk:
+            chunk.terrain = pygame.transform.scale(chunk.raw_terrain, (hanlder.CHUNK_SIZE_PIX, handler.CHUNK_SIZE_PIX))
