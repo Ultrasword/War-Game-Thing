@@ -5,6 +5,11 @@ from bin.engine import state
 
 
 class Entity:
+    STATIC = 0
+    DYNAMIC = 1
+    ATTACK = 2
+    DEATH = 3
+
     def __init__(self, pos=None, area=None, image_file=None, search_radius=0):
         self.pos = list(pos)[:3]
         if len(pos) == 3:
@@ -17,6 +22,7 @@ class Entity:
         self.image_file = image_file
         self.image = None
         self.id = 0
+        self.state = 0 # 0 is static or idle
         self.search_radius = search_radius
 
         self.dirty = True
@@ -31,15 +37,19 @@ class Entity:
         self.chunk = [int(self.pos[0] // handler.CHUNK_SIZE_PIX),
                       int(self.pos[1] // handler.CHUNK_SIZE_PIX)]
         self.chunk_str = f"{self.chunk[0]}.{self.chunk[1]}"
-        self.motion = [0, 0]
+        self.motion = [0.1, 0.1]
         self.offsets = [0, 0]
         self.lerp_amt = [0, 0]
         self.speed_multipliers = [0, 0]
         self.xflip = False
         self.change_chunks = True
+        self.sc = True
 
         # cache
         self.collided_chunks = []
+
+    def start(self, world, handler):
+        world.move_entity(self)
 
     def update_pos(self, world):
         if self.dirty:
@@ -70,6 +80,27 @@ class Entity:
         self.update_pos(state.CURRENT_STATE.world)
         op = other.pos
         return fs((op.pos[0] - self.pos[0]) ** 2 + (op.pos[1] - self.pos[1]) ** 2)
+
+    def set_motion(self, x, y):
+        self.motion[0] = x
+        self.motion[1] = y
+        if self.state == 0:
+            self.sc = True
+            self.state = Entity.DYNAMIC
+
+    def add_motion(self, x, y):
+        self.motion[0] += x
+        self.motion[1] += y
+        if self.state == 0:
+            self.sc = True
+            self.state = Entity.DYNAMIC
+
+    def is_static(self):
+        if abs(self.motion[0]) < 0.005 and abs(self.motion[1]) < 0.005:
+            self.motion[0] = 0
+            self.motion[1] = 0
+            self.state = Entity.STATIC
+            self.sc = self.state != 0
 
 
 # some functions for world handling

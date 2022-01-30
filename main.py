@@ -3,14 +3,14 @@ import os
 import json
 import pygame
 import random
+import traceback
 
 from pygame._sdl2.video import Window as sdlWindow
 
 from bin import game
-from bin.game import components
+from bin.game import components, tasks
 from bin.engine import *
 from bin.engine import state, particle, event, taskqueue, ui, multiprocesshandling
-
 
 os.environ['SDL_VIDEO_CENTERED'] = '1'
 ChunkObject = handler.Chunk
@@ -21,47 +21,43 @@ def main():
     window_scale_size = (1920, 1080)
     window_blit_location = (0, 0)
     RENDER_DISTANCE = 2
-    BACKGROUND_COLOR = (255,255,255)
+    BACKGROUND_COLOR = (255, 255, 255)
 
     Window = window.Window(1280, 720, "WageWar.io", pygame.BLEND_RGBA_MAX | pygame.RESIZABLE, bit_depth=32)
     Window.sdlwindow = sdlWindow.from_display_module()
     Window.set_min_size(1280, 720)
     Clock = clock.Clock(60)
     MemoryStorage = multiprocesshandling.MultiThreadedTaskHandler(max_threads=2)
-
-    # init engine
-    game.init()
-    state.init(camera=camera.Camera(window_size=window_scale_size), mp=MemoryStorage)
-    state.USER = ui.User()
     frame_buffer = pygame.Surface(window_scale_size, pygame.SRCALPHA, 32).convert()
-    MemoryStorage.start(state.WORLD)
-
-    state.push_state(game.gamestates.InGame(MemoryStorage, camera_pos=[window_scale_size[0]//2, window_scale_size[1]//2], seed=1))
-    # state.CURRENT_STATE.add_particle(100, 100, 30, 30, 20, "assets/animations/warrior/warrior_attack.png")
-    # faster loading chunks instead of re-creating every time
-    # testing purposes only
-    # for x in range(3):
-    #     for y in range(3):
-    #         state.CURRENT_STATE.add_chunk(ChunkObject(x, y,
-    #             terrain=pygame.image.load(f"assets/test/fastload/{x}.{y}.png").convert()))
-
-    state.WORLD.calculate_relavent_chunks(state.CAMERA.chunkpos, RENDER_DISTANCE)
-    # print(state.CURRENT_STATE.world.active_chunks)
-    state.WORLD.get_chunk("0.0").add_block(["assets/kirb.jpeg", 400, 400, 100, 100, 0])
-    # create a warrior!
-    # for i in range(10):
-    #     state.CURRENT_STATE.add_entity(game.warrior.Warrior((random.randint(0, 1920), random.randint(0, 1080)),
-    #                                             frame=random.randint(0, 4)))
-    state.CURRENT_STATE.add_entity(game.warrior.Warrior((300, 300), frame=0))
-    # add systems
-    state.CURRENT_STATE.add_system(0, components.UserDragVisualiser())
-    state.USER.mouse.update_ratio(1280, 720, window_scale_size[0], window_scale_size[1])
-
-    # ----------------------------- MEMORY -------------------------- #
-
-    # ----------------------------- ------ -------------------------- #
-
     running = True
+
+    try:
+        # init engine
+        game.init()
+        state.init(camera=camera.Camera(window_size=window_scale_size), mp=MemoryStorage)
+        state.USER = ui.User()
+        MemoryStorage.start(state.WORLD)
+
+        state.push_state(
+            game.gamestates.InGame(MemoryStorage, camera_pos=[window_scale_size[0] // 2, window_scale_size[1] // 2],
+                                   seed=1))
+        # add some preloaded chunks
+        for x in range(3):
+            for y in range(3):
+                state.WORLD.add_chunk(handler.Chunk(x, y, terrain=pygame.image.load(f"assets/test/{x}.{y}.png").convert()), make=False)
+
+        state.WORLD.calculate_relavent_chunks(state.CAMERA.chunkpos, RENDER_DISTANCE)
+        state.WORLD.get_chunk("0.0").add_block(["assets/kirb.jpeg", 400, 400, 100, 100, filehandler.size_to_num((100,100))])
+        state.CURRENT_STATE.add_entity(game.warrior.Warrior((300, 300), frame=0))
+        # add systems
+        state.CURRENT_STATE.add_system(0, components.UserDragVisualiser())
+        state.USER.mouse.update_ratio(1280, 720, window_scale_size[0], window_scale_size[1])
+    except Exception as e:
+        print(traceback.print_exc())
+        # exit the program
+        running = False
+        MemoryStorage.end()
+
     # run processes
     Clock.start()
     count = 1
@@ -91,17 +87,13 @@ def main():
             # handle mouse press
             elif e.type == pygame.MOUSEBUTTONDOWN:
                 state.USER.mouse.mouse_press(e)
-                # TODO - remove
-                if e.button == 1:
-                    p = state.USER.mouse.get_pos()
-                    p = (p[0] - state.CAMERA.center[0], p[1] - state.CAMERA.center[1])
-                    state.CURRENT_STATE.add_entity(game.warrior.Warrior(p))
-                    count += 1
             elif e.type == pygame.MOUSEBUTTONUP:
                 state.USER.mouse.mouse_release(e)
             # special event
             elif e.type == event.FOCAL_CHANGE_EVENT_ID:
                 state.WORLD.calculate_relavent_chunks(state.CAMERA.chunkpos, RENDER_DISTANCE, l_bor=0, t_bor=0)
+            elif e.type == event.USER_DRAG_RELEASE_ID:
+                event.user_drag_event(e, state.WORLD, state.HANDLER)
             else:
                 # do later
                 pass
@@ -112,12 +104,8 @@ def main():
         # render stuff and update everything
         frame_buffer.fill(BACKGROUND_COLOR)
 
-        # update tasks
-        while Clock.delta_time > 1:
-            state.CURRENT_STATE.update_systems(Clock.delta_time)
-            Clock.delta_time -= 1
-
         # render with camera
+        state.CURRENT_STATE.update_systems(Clock.delta_time)
         state.CAMERA.render_and_update_with_camera(frame_buffer, Clock.delta_time)
         state.CURRENT_STATE.render_systems(frame_buffer)
 

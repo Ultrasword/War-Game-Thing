@@ -17,9 +17,8 @@ def num_to_size(num):
     return [(w := (num >> 8) - 1), num - (w < 8)]
 
 
-def load_loaded_image(img, size):
-    s = size_to_num(size)
-    return LOADED[s][img]
+def load_loaded_image(img, sizenum):
+    return LOADED[sizenum][img]
 
 
 def has_image(img, size):

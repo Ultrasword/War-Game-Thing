@@ -59,5 +59,6 @@ class Task(object):
     def post_completion(self, world):
         pass
 
-    def result(self, world, args):
+    @staticmethod
+    def result(world, args):
         pass

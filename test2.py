@@ -1,12 +1,14 @@
-import numpy as np
+import time
+from collections import deque
 
-with open("file.chk", 'rb') as file:
-    data = file.read()
-    file.close()
+T = int(1e5)
 
-array = np.frombuffer(data, dtype=np.uint8)
+st = time.time()
+for i in range(T):
+    x = []
+print(time.time() - st)
 
-
-
-
-
+st = time.time()
+for i in range(T):
+    x = deque()
+print(time.time()-st)

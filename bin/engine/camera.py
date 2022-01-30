@@ -66,6 +66,9 @@ class Camera:
         for p_string in state.WORLD.active_chunks:
             if chunk := state.WORLD.get_chunk(p_string, create=False):
                 chunk.render(window, state.WORLD, self.center)
+        for p_string in state.WORLD.active_chunks:
+            if chunk := state.WORLD.get_chunk(p_string, create=False):
+                chunk.render_blocks(window, state.WORLD, self.center)
         # next update the entities
         for ent in state.HANDLER.active_entities:
             e = state.HANDLER.entities[ent]

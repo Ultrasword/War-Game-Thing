@@ -74,6 +74,7 @@ class GameState:
     def add_entity(self, entity):
         HANDLER.add_entity(entity)
         WORLD.add_entity(entity.id, entity.chunk_str)
+        entity.start(WORLD, HANDLER)
 
     def add_chunk(self, chunk):
         WORLD.add_chunk(chunk)

@@ -2,6 +2,7 @@ import json
 import os.path
 
 import pygame
+import numpy as np
 from PIL import Image as PIL_Image
 from collections import deque
 from bin import maths
@@ -80,12 +81,11 @@ def get_chunk(x, y, biome, simplex):
     l = CHUNK_BLOCK_WIDTH * x
     t = CHUNK_BLOCK_HEIGHT * y
     # TODO - set a designated color deciding function
-    col = (127, 127, 127)
-    biome_data = pygame.Surface((CHUNK_BLOCK_WIDTH, CHUNK_BLOCK_HEIGHT), pygame.SRCALPHA, 32).convert()
-    for y in range(CHUNK_BLOCK_WIDTH):
-        for x in range(CHUNK_BLOCK_HEIGHT):
+    biome_data = np.ndarray((CHUNK_SIZE, CHUNK_SIZE), dtype=np.uint8)
+    for y in range(CHUNK_SIZE):
+        for x in range(CHUNK_SIZE):
             value = biome.filter2d(simplex, (x+l) / CHUNK_BLOCK_WIDTH, (y+t) / CHUNK_BLOCK_HEIGHT)
-            biome_data.set_at((x,y), biome.color_func(value))
+            biome_data[y][x] = biome.color_func(value)
     return biome_data
 
 
@@ -98,6 +98,7 @@ class Chunk:
     def __init__(self, x, y, data=None, terrain=None):
         # block = [img_pointer, x, y, w, h, z]
         self.blocks = deque(data if data else [])
+        self.tile_map = np.ndarray((CHUNK_SIZE, CHUNK_SIZE, 2), dtype=np.uint8)
         # also terrain deque
         self.raw_terrain = terrain
         self.terrain = None
@@ -126,11 +127,14 @@ class Chunk:
         #            (self.pos_offset[0] + offset[0], self.pos_offset[1] + offset[1]))
         if self.terrain:
             window.blit(self.terrain, (self.pos_offset[0] + offset[0], self.pos_offset[1] + offset[1]))
-        window.blits([[filehandler.load_loaded_image(b[0], (b[3], b[4])), (b[1] + offset[0], b[2] + offset[1])] for b in self.blocks])
+
+    def render_blocks(self, window, world, offset=(0,0)):
+        window.blits([[filehandler.load_loaded_image(b[0], b[5]), (b[1] + offset[0], b[2] + offset[1])]
+                      for b in self.blocks])
 
     def add_block(self, block):
-        self.blocks.append(block)
         filehandler.has_image(block[0], (block[3], block[4]))
+        self.blocks.append(block)
 
     def add_entity(self, eid):
         self.entities.add(eid)
@@ -194,21 +198,24 @@ class World:
                 # check if we need to load the chunk
                 c = self.get_chunk(p_string, create=False)
                 if not c:
-                    self.c_queue.add(p_string)
-                    # if chunk is made but terrain is none, it is cached
+                    # if c has not been loaded before
+                    # if c raw terrain has not been loaded
+                    x, y = map(int, p_string.split("."))
+                    self.MultiprocessHandler.add_task(tasks.LoadChunk, (self.biome, self.simplex_gen, (x, y)))
                 else:
                     if not c.raw_terrain:
-                        self.c_queue.add(p_string)
+                        # if c raw terrain has not been loaded
+                        x, y = map(int, p_string.split("."))
+                        self.MultiprocessHandler.add_task(tasks.LoadChunk, (self.biome, self.simplex_gen, (x, y)))
         # check if chunk has already been loaded before - cache check
         for item in self.c_next:
             if self.cached_chunks.get(item):
                 # we need to load it from cache
                 x, y, = map(int, item.split("."))
-                self.MultiprocessHandler.add_task(tasks.LoadCacheChunk, (CACHE_PATH, x, y))
-            else:
-                # we create the chunk
-                x, y = map(int, item.split("."))
-                self.MultiprocessHandler.add_task(tasks.LoadChunk, (self.biome, self.simplex_gen, (x,y)))
+                # self.MultiprocessHandler.add_task(tasks.LoadCacheChunk, (CACHE_PATH, x, y))
+                raw = self.chunks.get(item).raw_terrain
+                self.MultiprocessHandler.add_task(tasks.ResizeChunkTerrain, (item, raw.get_size(),
+                                                                             pygame.image.tostring(raw, "RGB", False)))
         for removed_chunk in self.active_chunks:
             # check if it is not being used again
             if removed_chunk not in self.c_next:
@@ -218,9 +225,10 @@ class World:
                 if chunk:
                     if chunk.raw_terrain:
                         x, y = map(int, removed_chunk.split("."))
-                        self.MultiprocessHandler.add_task(tasks.SaveChunkData, (CACHE_PATH, x, y,
-                                                            pygame.image.tostring(chunk.raw_terrain, "RGBA", False),
-                                                                        chunk.raw_terrain.get_size()))
+                        # self.MultiprocessHandler.add_task(tasks.SaveChunkData, (CACHE_PATH, x, y,
+                        #                                     pygame.image.tostring(chunk.raw_terrain, "RGBA", False),
+                        #                                                 chunk.raw_terrain.get_size()))
+                        self.MultiprocessHandler.add_task(tasks.ShrinkChunkSize, (removed_chunk,))
         self.active_chunks = self.c_next.copy()
 
     def get_chunk(self, posstring, create=True, auto_start=True):
@@ -239,9 +247,11 @@ class World:
     def remove_chunk(self, chunk_pos_string):
         self.chunks.pop(chunk_pos_string)
 
-    def add_chunk(self, chunk):
-        self.MultiprocessHandler.add_task(tasks.LoadChunk, (self.biome, self.simplex_gen, chunk.pos))
-        # chunk.start(self.simplex_gen, self.biome)
+    def add_chunk(self, chunk, make=False):
+        if make:
+            self.MultiprocessHandler.add_task(tasks.LoadChunk, (self.biome, self.simplex_gen,
+                                                            tuple(map(int, chunk.pos.split(".")))))
+        chunk.start(self.simplex_gen, self.biome)
         self.chunks[chunk.pos] = chunk
 
     def add_chunks(self, chunks):
@@ -277,7 +287,34 @@ class World:
             return False
         return True
 
-    def get_collided_chunks(self, entity, hitbox):
+    def get_collided_chunks_hitbox(self, hitbox):
+        result = []
+        # get the chunk string
+        cp = f"{int(hitbox[0]//CHUNK_SIZE_PIX)}.{int(hitbox[1]//CHUNK_SIZE_PIX)}"
+        # get chunk object
+        chunk = self.get_chunk(cp, create=False)
+        # store hitbox leaking
+        leaving = [0, 0]
+        if hitbox[0] < chunk.pos_offset[0]:
+            leaving[0] -= 1
+        elif hitbox[0] + hitbox[2] > chunk.pos_offset[0] + CHUNK_SIZE_PIX:
+            leaving[0] += 1
+        if hitbox[1] < chunk.pos_offset[1]:
+            leaving[1] -= 1
+        elif hitbox[1] + hitbox[3] > chunk.pos_offset[1] + CHUNK_SIZE_PIX:
+            leaving[1] += 1
+        # now you add all the possible chunks :D, max - 2 x 2 check
+        lx = min(0, leaving[0])
+        rx = max(0, leaving[0])
+        ly = min(0, leaving[1])
+        ry = max(0, leaving[1])
+        for x in range(chunk.x + lx, chunk.x + rx + 1):
+            for y in range(chunk.y + ly, chunk.y + ry + 1):
+                result.append(f"{x}.{y}")
+        # [print(chunk, end="\t") for chunk in chunks]; print()
+        return result
+
+    def get_collided_chunks(self, entity, hitbox, chunk_str=None):
         if not entity.change_chunks:
             return entity.collided_chunks
         # un toggle it
