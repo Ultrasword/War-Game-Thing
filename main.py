@@ -23,7 +23,7 @@ def main():
     RENDER_DISTANCE = 2
     BACKGROUND_COLOR = (255, 255, 255)
 
-    Window = window.Window(1280, 720, "WageWar.io", pygame.BLEND_RGBA_MAX | pygame.RESIZABLE, bit_depth=32)
+    Window = window.Window(1280, 720, "WageWar.io", pygame.BLEND_RGBA_MAX | pygame.RESIZABLE, bit_depth=32, vsync=1)
     Window.sdlwindow = sdlWindow.from_display_module()
     Window.set_min_size(1280, 720)
     Clock = clock.Clock(60)

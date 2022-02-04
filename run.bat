@@ -1,1 +1,1 @@
-"venv/Scripts/activate"& python main.py
+cd "C:\Users\peter.zhang\Documents\GitHub\War-Game-Thing\" & "venv\Scripts\activate" & python "main.py"

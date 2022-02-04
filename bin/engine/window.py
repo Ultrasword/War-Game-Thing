@@ -4,11 +4,11 @@ import pygame
 class Window:
     FULLSCREEN_SIZE = None
 
-    def __init__(self, width, height, title=None, flags=0, bit_depth=32, icon=None):
+    def __init__(self, width, height, title=None, flags=0, bit_depth=32, icon=None, vsync=0):
         pygame.init()
         # some globals
         self.FULLSCREEN_SIZE = pygame.display.get_desktop_sizes()[0]
-        self.previous_window_settings = [(width, height), flags, bit_depth]
+        self.previous_window_settings = [(width, height), flags, bit_depth, vsync]
 
         self.base_area = (width, height)
         self.area = [width, height]
@@ -16,9 +16,10 @@ class Window:
         self.icon = icon
         self.flags = flags
         self.bit_depth = bit_depth
+        self.vsync = vsync
 
         # create the window
-        self.window = pygame.display.set_mode(self.area, self.flags, self.bit_depth)
+        self.window = pygame.display.set_mode(self.area, self.flags, self.bit_depth, vsync=self.vsync)
         self.sdlwindow = None
         self.size_changed = True
         self.min_size = None
